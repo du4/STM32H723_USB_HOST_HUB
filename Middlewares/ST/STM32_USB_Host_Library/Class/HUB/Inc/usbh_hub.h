@@ -113,7 +113,7 @@ typedef struct __attribute__ ((packed)) _USB_HUB_PORT_STATUS
         	uint8_t     C_PORT_SUSPEND       : 1;
         	uint8_t     C_PORT_OVER_CURRENT  : 1;
         	uint8_t     C_PORT_RESET         : 1;
-        	uint16_t    RESERVED             : 11;
+        	uint16_t    RESERVED__           : 11;
         };
 
         uint16_t val;

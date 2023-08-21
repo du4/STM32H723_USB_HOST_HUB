@@ -388,7 +388,9 @@ static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, con
 	    	HUB_Handle->InPipe  = USBH_AllocPipe(phost, HUB_Handle->InEp);
 
 	    	// Open pipe for IN endpoint
-	    	USBH_OpenPipe(phost, HUB_Handle->InPipe, HUB_Handle->InEp, & HUB_Handle->target, USB_EP_TYPE_INTR, HUB_Handle->length);
+	    	USBH_OpenPipe(phost, HUB_Handle->InPipe, HUB_Handle->InEp,
+	    			HUB_Handle->target.dev_address, HUB_Handle->target.speed,
+					USB_EP_TYPE_INTR, HUB_Handle->length);
 	    	USBH_LL_SetToggle (phost, HUB_Handle->InPipe, 0);
 	    }
 
@@ -421,8 +423,8 @@ static void USBH_HUB_ProcessDelay(
 	unsigned delayMS
 	)
 {
-	HUB_Handle->tickstart = sys_now();
-	HUB_Handle->wait = ulmax32(delayMS, 1000 / TICKS_FREQUENCY);
+	HUB_Handle->tickstart = HAL_GetTick();
+	HUB_Handle->wait = delayMS;
 	HUB_Handle->ctl_state = HUB_DELAY;
 	HUB_Handle->ctl_state_push = state;
 }
@@ -519,13 +521,13 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 		break;
 
 	case HUB_REQ_SCAN_STATUSES:
-		ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
+//		ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
 		status = get_hub_request(phost, USB_REQUEST_GET_STATUS, HUB_FEAT_SEL_PORT_CONN, HUB_Handle->hubClassRequestPort,
 				HUB_Handle->buffer, sizeof(USB_HUB_PORT_STATUS));
 		if (status == USBH_OK)
 		{
 			USBH_TargetTypeDef   * const tg = & HUB_Handle->Targets [HUB_Handle->hubClassRequestPort - 1];	/* Enumeration target */
-			ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
+//			ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
 
 			//printhex(HUB_Handle->buffer, HUB_Handle->buffer, sizeof (USB_HUB_PORT_STATUS));
 			USB_HUB_PORT_STATUS * const st = (USB_HUB_PORT_STATUS*) HUB_Handle->buffer;
@@ -647,7 +649,7 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 		break;
 
 	case HUB_DELAY:
-		if  ((sys_now() - HUB_Handle->tickstart) >= HUB_Handle->wait)
+		if  ((HAL_GetTick() - HUB_Handle->tickstart) >= HUB_Handle->wait)
 			HUB_Handle->ctl_state = HUB_Handle->ctl_state_push;
 		status = USBH_BUSY;
 		break;

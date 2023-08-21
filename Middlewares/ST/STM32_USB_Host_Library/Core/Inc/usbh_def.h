@@ -105,7 +105,7 @@ extern "C" {
 #define USBH_MPS_DEFAULT                         0x40U
 #define USBH_MPS_LOWSPEED                        0x08U
 
-#define TICKS_FREQUENCY							200U
+#define TICKS_FREQUENCY							1000U
 
 #define  USB_LEN_DESC_HDR                                  0x02U
 #define  USB_LEN_DEV_DESC                                  0x12U

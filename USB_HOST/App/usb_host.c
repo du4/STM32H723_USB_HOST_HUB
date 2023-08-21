@@ -23,6 +23,7 @@
 #include "usb_host.h"
 #include "usbh_core.h"
 #include "usbh_cdc.h"
+#include "usbh_hub.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -76,7 +77,7 @@ void MX_USB_HOST_Init(void)
   {
     Error_Handler();
   }
-  if (USBH_RegisterClass(&hUsbHostHS, USBH_CDC_CLASS) != USBH_OK)
+  if ( (USBH_RegisterClass(&hUsbHostHS, USBH_CDC_CLASS) != USBH_OK) && (USBH_RegisterClass(& hUsbHostHS, &HUB_Class) != USBH_OK) )
   {
     Error_Handler();
   }
