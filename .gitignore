@@ -50,3 +50,16 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+
+relre:.*/build/.*
+syntax: glob
+*.iml
+syntax: regexp
+.settings/
+.metadata/
+target/
+Debug/
+Release/
+RemoteSystemsTempFiles/
+
