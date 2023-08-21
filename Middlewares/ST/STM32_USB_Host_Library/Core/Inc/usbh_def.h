@@ -100,6 +100,13 @@ extern "C" {
 
 #define USBH_MAX_EP_PACKET_SIZE                            0x400U
 
+#define USBH_ADDRESS_DEFAULT                     0x00U
+//#define USBH_ADDRESS_ASSIGNED                    0x01U // адреса разные в случае структуры с HUB
+#define USBH_MPS_DEFAULT                         0x40U
+#define USBH_MPS_LOWSPEED                        0x08U
+
+#define TICKS_FREQUENCY							200U
+
 #define  USB_LEN_DESC_HDR                                  0x02U
 #define  USB_LEN_DEV_DESC                                  0x12U
 #define  USB_LEN_CFG_DESC                                  0x09U
@@ -317,6 +324,7 @@ typedef enum
   USBH_NOT_SUPPORTED,
   USBH_UNRECOVERED_ERROR,
   USBH_ERROR_SPEED_UNKNOWN,
+  USBH_HUB_REQ_REENUMERATE,
 } USBH_StatusTypeDef;
 
 
@@ -445,6 +453,15 @@ typedef struct
   USBH_CfgDescTypeDef               CfgDesc;
 } USBH_DeviceTypeDef;
 
+typedef struct
+{
+	uint8_t speed;
+	uint8_t dev_address;
+	uint8_t tt_hubaddr;
+	uint8_t tt_prtaddr;
+
+} USBH_TargetTypeDef;
+
 struct _USBH_HandleTypeDef;
 
 /* USB Host Class structure */
@@ -463,11 +480,20 @@ typedef struct
 /* USB Host handle structure */
 typedef struct _USBH_HandleTypeDef
 {
-  __IO HOST_StateTypeDef     gState;       /*  Host State Machine Value */
+	  __IO HOST_StateTypeDef     gState;       /*  Host State Machine Value */
+	  __IO HOST_StateTypeDef     gPushState;       /*  Host State Machine Value */
+	  //uint32_t              gPushTicks;
+	  uint32_t tickstart;
+	  uint32_t wait;
+
   ENUM_StateTypeDef     EnumState;    /* Enumeration state Machine */
   CMD_StateTypeDef      RequestState;
   USBH_CtrlTypeDef      Control;
   USBH_DeviceTypeDef    device;
+
+  USBH_TargetTypeDef	rootTarget;		/* Enumeration target */
+  USBH_TargetTypeDef   *currentTarget;	/* Enumeration target */
+
   USBH_ClassTypeDef    *pClass[USBH_MAX_NUM_SUPPORTED_CLASS];
   USBH_ClassTypeDef    *pActiveClass;
   uint32_t              ClassNumber;
@@ -488,6 +514,11 @@ typedef struct _USBH_HandleTypeDef
 #endif
   uint32_t              os_msg;
 #endif
+
+  uint8_t hubInstances;
+  void *   hubDatas [USBH_MAX_NUM_INTERFACES];
+
+  uint8_t allocaddress;
 
 } USBH_HandleTypeDef;
 
