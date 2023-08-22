@@ -6,12 +6,13 @@
   ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2015 STMicroelectronics.
-  * All rights reserved.
+  * <h2><center>&copy; Copyright (c) 2015 STMicroelectronics.
+  * All rights reserved.</center></h2>
   *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
+  * This software component is licensed by ST under Ultimate Liberty license
+  * SLA0044, the "License"; You may not use this file except in compliance with
+  * the License. You may obtain a copy of the License at:
+  *                      www.st.com/SLA0044
   *
   ******************************************************************************
   */
@@ -56,7 +57,7 @@ extern "C" {
 #define DATA_INTERFACE_CLASS_CODE                               0x0AU
 
 /*Communication sub class codes*/
-#define RESERVED                                                0x00U
+#define RESERVED_CONTROL_MODE                                   0x00U	// was: RESERVED
 #define DIRECT_LINE_CONTROL_MODEL                               0x01U
 #define ABSTRACT_CONTROL_MODEL                                  0x02U
 #define TELEPHONE_CONTROL_MODEL                                 0x03U
@@ -158,7 +159,7 @@ CDC_StateTypeDef;
 /*Line coding structure*/
 typedef union _CDC_LineCodingStructure
 {
-  uint8_t Array[LINE_CODING_STRUCTURE_SIZE];
+	__ALIGN_BEGIN uint8_t Array[LINE_CODING_STRUCTURE_SIZE] __ALIGN_END;
 
   struct
   {
@@ -324,10 +325,10 @@ typedef struct
 {
   uint8_t              NotifPipe;
   uint8_t              NotifEp;
-  uint8_t              buff[8];
+  //uint8_t              buff[8];
   uint16_t             NotifEpSize;
 }
-CDC_CommItfTypedef;
+CDC_CommItfTypedef ;
 
 typedef struct
 {
@@ -335,11 +336,11 @@ typedef struct
   uint8_t              OutPipe;
   uint8_t              OutEp;
   uint8_t              InEp;
-  uint8_t              buff[8];
+  //uint8_t              buff[8];
   uint16_t             OutEpSize;
   uint16_t             InEpSize;
 }
-CDC_DataItfTypedef;
+CDC_DataItfTypedef ;
 
 /* Structure for CDC process */
 typedef struct _CDC_Process
@@ -357,6 +358,8 @@ typedef struct _CDC_Process
   CDC_DataStateTypeDef              data_tx_state;
   CDC_DataStateTypeDef              data_rx_state;
   uint8_t                           Rx_Poll;
+
+  USBH_TargetTypeDef target;
 }
 CDC_HandleTypeDef;
 
@@ -443,4 +446,5 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost);
 /**
   * @}
   */
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
 

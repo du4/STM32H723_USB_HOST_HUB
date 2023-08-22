@@ -75,6 +75,7 @@ osThreadAttr_t USBH_Thread_Atrr;
 static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost);
 static void USBH_HandleSof(USBH_HandleTypeDef *phost);
 static USBH_StatusTypeDef DeInitStateMachine(USBH_HandleTypeDef *phost);
+static uint8_t USBH_GetNextAddress(USBH_HandleTypeDef *phost, uint8_t modify);
 
 #if (USBH_USE_OS == 1U)
 #if (osCMSIS < 0x20000U)
@@ -554,42 +555,40 @@ USBH_StatusTypeDef USBH_Process(USBH_HandleTypeDef *phost)
 #endif
       break;
 
-    case HOST_DEV_ATTACHED :
+  	// С этого состояния начинается повторная енуменация для устройств на HUB
+     case HOST_DEV_ATTACHED :
 
-      if (phost->pUser != NULL)
-      {
-        phost->pUser(phost, HOST_USER_CONNECTION);
-      }
+         //USBH_UsrLog("USB device attached.");
+       if (phost->pUser != NULL)
+        {
+          phost->pUser(phost, HOST_USER_CONNECTION);
+        }
 
-      /* Wait for 100 ms after Reset */
-      USBH_Delay(100U);
+        phost->gState = HOST_ENUMERATION;
 
-      phost->device.speed = (uint8_t)USBH_LL_GetSpeed(phost);
+        phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
+        phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
 
-      phost->gState = HOST_ENUMERATION;
 
-      phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
-      phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
+        /* Open Control pipes */
+        (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U,
+      		  	  	  	  phost->currentTarget,
+                            USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 
-      /* Open Control pipes */
-      (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U,
-                          phost->device.address, phost->device.speed,
-                          USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
+        /* Open Control pipes */
+        (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U,
+      		  	  	  	  phost->currentTarget,
+                            USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 
-      /* Open Control pipes */
-      (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U,
-                          phost->device.address, phost->device.speed,
-                          USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
-
-#if (USBH_USE_OS == 1U)
-      phost->os_msg = (uint32_t)USBH_PORT_EVENT;
-#if (osCMSIS < 0x20000U)
-      (void)osMessagePut(phost->os_event, phost->os_msg, 0U);
-#else
-      (void)osMessageQueuePut(phost->os_event, &phost->os_msg, 0U, 0U);
-#endif
-#endif
-      break;
+  #if (USBH_USE_OS == 1U)
+        phost->os_msg = (uint32_t)USBH_PORT_EVENT;
+  #if (osCMSIS < 0x20000U)
+        (void)osMessagePut(phost->os_event, phost->os_msg, 0U);
+  #else
+        (void)osMessageQueuePut(phost->os_event, &phost->os_msg, 0U, 0U);
+  #endif
+  #endif
+        break;
 
     case HOST_ENUMERATION:
       /* Check for enumeration status */
@@ -862,14 +861,12 @@ static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
         phost->EnumState = ENUM_GET_FULL_DEV_DESC;
 
         /* modify control channels configuration for MaxPacket size */
-        (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->device.address,
-                            phost->device.speed, USBH_EP_CONTROL,
-                            (uint16_t)phost->Control.pipe_size);
+        (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL,
+        	(uint16_t)phost->Control.pipe_size);
 
         /* Open Control pipes */
-        (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->device.address,
-                            phost->device.speed, USBH_EP_CONTROL,
-                            (uint16_t)phost->Control.pipe_size);
+        (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL,
+        	(uint16_t)phost->Control.pipe_size);
       }
       else if (ReqStatus == USBH_NOT_SUPPORTED)
       {
@@ -936,24 +933,24 @@ static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
 
     case ENUM_SET_ADDR:
       /* set address */
-      ReqStatus = USBH_SetAddress(phost, USBH_DEVICE_ADDRESS);
+      ReqStatus = USBH_SetAddress(phost, USBH_GetNextAddress(phost, 0));
       if (ReqStatus == USBH_OK)
       {
         USBH_Delay(2U);
-        phost->device.address = USBH_DEVICE_ADDRESS;
+        phost->currentTarget->dev_address = USBH_GetNextAddress(phost, 1);
 
         /* user callback for device address assigned */
-        USBH_UsrLog("Address (#%d) assigned.", phost->device.address);
+        USBH_UsrLog("Address (#%d,hub=%d,port=%d,speed=%d) assigned.", (int) phost->currentTarget->dev_address, (int) phost->currentTarget->tt_hubaddr, (int) phost->currentTarget->tt_prtaddr, (int) phost->currentTarget->speed);
         phost->EnumState = ENUM_GET_CFG_DESC;
 
         /* modify control channels to update device address */
-        (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U,  phost->device.address,
-                            phost->device.speed, USBH_EP_CONTROL,
+        (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget,
+                            USBH_EP_CONTROL,
                             (uint16_t)phost->Control.pipe_size);
 
         /* Open Control pipes */
-        (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->device.address,
-                            phost->device.speed, USBH_EP_CONTROL,
+        (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget,
+                            USBH_EP_CONTROL,
                             (uint16_t)phost->Control.pipe_size);
       }
       else if (ReqStatus == USBH_NOT_SUPPORTED)
@@ -970,6 +967,7 @@ static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
         /* .. */
       }
       break;
+
 
     case ENUM_GET_CFG_DESC:
       /* get standard configuration descriptor */
@@ -1177,6 +1175,12 @@ static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
   return Status;
 }
 
+/* return 1..126 as address */
+uint8_t USBH_GetNextAddress(USBH_HandleTypeDef *phost, uint8_t modify){
+	uint8_t v = phost->allocaddress;
+	phost->allocaddress = (phost->allocaddress + modify) % 125;
+	return v + 1;
+}
 
 /**
   * @brief  USBH_LL_SetTimer

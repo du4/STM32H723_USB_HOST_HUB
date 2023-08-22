@@ -422,7 +422,7 @@ static void USBH_HUB_ProcessDelay(
 	)
 {
 	HUB_Handle->tickstart = sys_now();
-	HUB_Handle->wait = ulmax32(delayMS, 1000 / TICKS_FREQUENCY);
+	HUB_Handle->wait = delayMS;
 	HUB_Handle->ctl_state = HUB_DELAY;
 	HUB_Handle->ctl_state_push = state;
 }

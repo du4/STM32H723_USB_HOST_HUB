@@ -4,17 +4,6 @@
   * @author  MCD Application Team
   * @brief   This file is the CDC Layer Handlers for USB Host CDC class.
   *
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2015 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
   *  @verbatim
   *
   *          ===================================================================
@@ -35,6 +24,17 @@
   *  @endverbatim
   *
   ******************************************************************************
+  * @attention
+  *
+  * <h2><center>&copy; Copyright (c) 2015 STMicroelectronics.
+  * All rights reserved.</center></h2>
+  *
+  * This software component is licensed by ST under Ultimate Liberty license
+  * SLA0044, the "License"; You may not use this file except in compliance with
+  * the License. You may obtain a copy of the License at:
+  *                      www.st.com/SLA0044
+  *
+  ******************************************************************************
   */
 
 /* BSPDependencies
@@ -46,7 +46,7 @@
 EndBSPDependencies */
 
 /* Includes ------------------------------------------------------------------*/
-#include "usbh_cdc.h"
+#include "../Inc/usbh_cdc.h"
 
 /** @addtogroup USBH_LIB
   * @{
@@ -102,7 +102,7 @@ EndBSPDependencies */
   * @{
   */
 
-static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost);
+static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost, const USBH_TargetTypeDef * target);
 
 static USBH_StatusTypeDef USBH_CDC_InterfaceDeInit(USBH_HandleTypeDef *phost);
 
@@ -148,7 +148,7 @@ USBH_ClassTypeDef  CDC_Class =
   * @param  phost: Host handle
   * @retval USBH Status
   */
-static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost)
+static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost, const USBH_TargetTypeDef * target)
 {
 
   USBH_StatusTypeDef status;
@@ -160,7 +160,7 @@ static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost)
 
   if ((interface == 0xFFU) || (interface >= USBH_MAX_NUM_INTERFACES)) /* No Valid Interface */
   {
-    USBH_DbgLog("Cannot Find the interface for Communication Interface Class.", phost->pActiveClass->Name);
+    USBH_DbgLog("Cannot Find the interface for Communication Interface Class '%s'.", phost->pActiveClass->Name);
     return USBH_FAIL;
   }
 
@@ -171,7 +171,10 @@ static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost)
     return USBH_FAIL;
   }
 
-  phost->pActiveClass->pData = (CDC_HandleTypeDef *)USBH_malloc(sizeof(CDC_HandleTypeDef));
+  // check USBH_free
+  static CDC_HandleTypeDef staticCDC_Handle;
+  phost->pActiveClass->pData = & staticCDC_Handle;
+  //phost->pActiveClass->pData = (CDC_HandleTypeDef *)USBH_malloc(sizeof(CDC_HandleTypeDef));
   CDC_Handle = (CDC_HandleTypeDef *) phost->pActiveClass->pData;
 
   if (CDC_Handle == NULL)
@@ -182,6 +185,8 @@ static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost)
 
   /* Initialize cdc handler */
   (void)USBH_memset(CDC_Handle, 0, sizeof(CDC_HandleTypeDef));
+
+  (void)USBH_memcpy(& CDC_Handle->target, target, sizeof CDC_Handle->target);
 
   /*Collect the notification endpoint address and length*/
   if ((phost->device.CfgDesc.Itf_Desc[interface].Ep_Desc[0].bEndpointAddress & 0x80U) != 0U)
@@ -195,17 +200,17 @@ static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost)
 
   /* Open pipe for Notification endpoint */
   (void)USBH_OpenPipe(phost, CDC_Handle->CommItf.NotifPipe, CDC_Handle->CommItf.NotifEp,
-                      phost->device.address, phost->device.speed, USB_EP_TYPE_INTR,
+		  	  	  	  & CDC_Handle->target, USB_EP_TYPE_INTR,
                       CDC_Handle->CommItf.NotifEpSize);
 
   (void)USBH_LL_SetToggle(phost, CDC_Handle->CommItf.NotifPipe, 0U);
 
   interface = USBH_FindInterface(phost, DATA_INTERFACE_CLASS_CODE,
-                                   RESERVED, NO_CLASS_SPECIFIC_PROTOCOL_CODE);
+		  	  	  	  RESERVED_CONTROL_MODE, NO_CLASS_SPECIFIC_PROTOCOL_CODE);
 
   if ((interface == 0xFFU) || (interface >= USBH_MAX_NUM_INTERFACES)) /* No Valid Interface */
   {
-    USBH_DbgLog("Cannot Find the interface for Data Interface Class.", phost->pActiveClass->Name);
+    USBH_DbgLog("Cannot Find the interface for Data Interface Class '%s'.", phost->pActiveClass->Name);
     return USBH_FAIL;
   }
 
@@ -240,12 +245,12 @@ static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost)
 
   /* Open channel for OUT endpoint */
   (void)USBH_OpenPipe(phost, CDC_Handle->DataItf.OutPipe, CDC_Handle->DataItf.OutEp,
-                      phost->device.address, phost->device.speed, USB_EP_TYPE_BULK,
+		  	  	  	  & CDC_Handle->target, USB_EP_TYPE_BULK,
                       CDC_Handle->DataItf.OutEpSize);
 
   /* Open channel for IN endpoint */
   (void)USBH_OpenPipe(phost, CDC_Handle->DataItf.InPipe, CDC_Handle->DataItf.InEp,
-                      phost->device.address, phost->device.speed, USB_EP_TYPE_BULK,
+		  	  	  	  & CDC_Handle->target, USB_EP_TYPE_BULK,
                       CDC_Handle->DataItf.InEpSize);
 
   CDC_Handle->state = CDC_IDLE_STATE;
@@ -291,7 +296,7 @@ static USBH_StatusTypeDef USBH_CDC_InterfaceDeInit(USBH_HandleTypeDef *phost)
 
   if ((phost->pActiveClass->pData) != NULL)
   {
-    USBH_free(phost->pActiveClass->pData);
+    //USBH_free(phost->pActiveClass->pData);
     phost->pActiveClass->pData = 0U;
   }
 
@@ -434,7 +439,7 @@ static USBH_StatusTypeDef USBH_CDC_SOFProcess(USBH_HandleTypeDef *phost)
   * @param  phost: Host handle
   * @retval USBH Status
   */
-USBH_StatusTypeDef USBH_CDC_Stop(USBH_HandleTypeDef *phost)
+USBH_StatusTypeDef  USBH_CDC_Stop(USBH_HandleTypeDef *phost)
 {
   CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) phost->pActiveClass->pData;
 
@@ -526,8 +531,8 @@ USBH_StatusTypeDef USBH_CDC_SetLineCoding(USBH_HandleTypeDef *phost,
   * @param  None
   * @retval None
   */
-USBH_StatusTypeDef USBH_CDC_GetLineCoding(USBH_HandleTypeDef *phost,
-                                          CDC_LineCodingTypeDef *linecoding)
+USBH_StatusTypeDef  USBH_CDC_GetLineCoding(USBH_HandleTypeDef *phost,
+                                           CDC_LineCodingTypeDef *linecoding)
 {
   CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) phost->pActiveClass->pData;
 
@@ -569,7 +574,7 @@ uint16_t USBH_CDC_GetLastReceivedDataSize(USBH_HandleTypeDef *phost)
   * @param  None
   * @retval None
   */
-USBH_StatusTypeDef USBH_CDC_Transmit(USBH_HandleTypeDef *phost, uint8_t *pbuff, uint32_t length)
+USBH_StatusTypeDef  USBH_CDC_Transmit(USBH_HandleTypeDef *phost, uint8_t *pbuff, uint32_t length)
 {
   USBH_StatusTypeDef Status = USBH_BUSY;
   CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) phost->pActiveClass->pData;
@@ -600,7 +605,7 @@ USBH_StatusTypeDef USBH_CDC_Transmit(USBH_HandleTypeDef *phost, uint8_t *pbuff, 
   * @param  None
   * @retval None
   */
-USBH_StatusTypeDef USBH_CDC_Receive(USBH_HandleTypeDef *phost, uint8_t *pbuff, uint32_t length)
+USBH_StatusTypeDef  USBH_CDC_Receive(USBH_HandleTypeDef *phost, uint8_t *pbuff, uint32_t length)
 {
   USBH_StatusTypeDef Status = USBH_BUSY;
   CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) phost->pActiveClass->pData;
@@ -753,7 +758,7 @@ static void CDC_ProcessReception(USBH_HandleTypeDef *phost)
 
         if (((CDC_Handle->RxDataLength - length) > 0U) && (length > CDC_Handle->DataItf.InEpSize))
         {
-          CDC_Handle->RxDataLength -= length;
+          CDC_Handle->RxDataLength -= length ;
           CDC_Handle->pRxData += length;
           CDC_Handle->data_rx_state = CDC_RECEIVE_DATA;
         }
@@ -834,3 +839,4 @@ __weak void USBH_CDC_LineCodingChanged(USBH_HandleTypeDef *phost)
   * @}
   */
 
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
