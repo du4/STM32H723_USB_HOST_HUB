@@ -64,6 +64,9 @@
 #define HUB_FEAT_SEL_C_PORT_RESET            0x14
 #define HUB_FEAT_SEL_PORT_INDICATOR          0x16
 
+extern USBH_ClassTypeDef  HUB_Class;
+#define USBH_HUB_CLASS    &HUB_Class
+
 
 typedef struct __attribute__ ((packed)) _USB_HUB_DESCRIPTOR
 {
