@@ -761,26 +761,21 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
           USBH_UsrLog("Total %d classes has been registered.", (int) phost->ClassNumber);
        phost->pActiveClass = NULL;
 
-        for (idx = 0U; idx < phost->ClassNumber; idx++)
-        {
+        for (idx = 0U; idx < phost->ClassNumber; idx++){
         	/* выключаем из рассмотрения HUB CLASS, если он уже один раз сработал */
-          if (phost->hubInstances != 0 && phost->pClass[idx] == & HUB_Class)
-          {
+          if (phost->hubInstances != 0 && phost->pClass[idx] == &HUB_Class){
         	  continue;
           }
 
-          if (phost->pClass[idx]->ClassCode == phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass)
-          {
+          if (phost->pClass[idx]->ClassCode == phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass){
             phost->pActiveClass = phost->pClass[idx];
             break;
           }
         }
 
-        if (phost->pActiveClass != NULL)
-        {
+        if (phost->pActiveClass != NULL){
         	USBH_StatusTypeDef st = phost->pActiveClass->Init(phost, phost->currentTarget);
-          if (st == USBH_OK)
-          {
+          if (st == USBH_OK){
             phost->gState = HOST_CLASS_REQUEST;
             USBH_UsrLog("%s class code %02X started.", phost->pActiveClass->Name, (unsigned) phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass);
 
