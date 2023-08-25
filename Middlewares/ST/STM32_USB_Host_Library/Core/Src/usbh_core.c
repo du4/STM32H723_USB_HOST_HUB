@@ -69,7 +69,6 @@ osThreadAttr_t USBH_Thread_Atrr;
 static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost);
 static void USBH_HandleSof(USBH_HandleTypeDef *phost);
 static USBH_StatusTypeDef DeInitStateMachine(USBH_HandleTypeDef *phost);
-static uint8_t USBH_GetNextAddress(USBH_HandleTypeDef *phost, uint8_t modify);
 
 #if (USBH_USE_OS == 1U)
 #if (osCMSIS < 0x20000U)
