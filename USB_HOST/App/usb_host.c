@@ -23,6 +23,7 @@
 #include "usb_host.h"
 #include "usbh_core.h"
 #include "usbh_cdc.h"
+#include "usbh_hub.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -72,16 +73,13 @@ void MX_USB_HOST_Init(void)
   /* USER CODE END USB_HOST_Init_PreTreatment */
 
   /* Init host Library, add supported class and start the library. */
-  if (USBH_Init(&hUsbHostHS, USBH_UserProcess, HOST_HS) != USBH_OK)
-  {
+  if (USBH_Init(&hUsbHostHS, USBH_UserProcess, HOST_HS) != USBH_OK){
     Error_Handler();
   }
-  if (USBH_RegisterClass(&hUsbHostHS, USBH_CDC_CLASS) != USBH_OK)
-  {
+  if ((USBH_RegisterClass(&hUsbHostHS, USBH_CDC_CLASS) != USBH_OK) && (USBH_RegisterClass(&hUsbHostHS, USBH_HUB_CLASS) != USBH_OK)){
     Error_Handler();
   }
-  if (USBH_Start(&hUsbHostHS) != USBH_OK)
-  {
+  if (USBH_Start(&hUsbHostHS) != USBH_OK){
     Error_Handler();
   }
   /* USER CODE BEGIN USB_HOST_Init_PostTreatment */
@@ -92,16 +90,14 @@ void MX_USB_HOST_Init(void)
 /*
  * Background task
  */
-void MX_USB_HOST_Process(void)
-{
+void MX_USB_HOST_Process(void){
   /* USB Host Background task */
   USBH_Process(&hUsbHostHS);
 }
 /*
  * user callback definition
  */
-static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id)
-{
+static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id){
   /* USER CODE BEGIN CALL_BACK_1 */
   switch(id)
   {

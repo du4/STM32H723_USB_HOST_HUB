@@ -112,14 +112,16 @@ USBH_StatusTypeDef   USBH_LL_Init(USBH_HandleTypeDef *phost);
 USBH_StatusTypeDef   USBH_LL_DeInit(USBH_HandleTypeDef *phost);
 USBH_StatusTypeDef   USBH_LL_Start(USBH_HandleTypeDef *phost);
 USBH_StatusTypeDef   USBH_LL_Stop(USBH_HandleTypeDef *phost);
+USBH_StatusTypeDef   USBH_LL_StopHC(USBH_HandleTypeDef *phost, uint8_t chnum); // MORI
 
 USBH_StatusTypeDef   USBH_LL_Connect(USBH_HandleTypeDef *phost);
 USBH_StatusTypeDef   USBH_LL_Disconnect(USBH_HandleTypeDef *phost);
 USBH_SpeedTypeDef    USBH_LL_GetSpeed(USBH_HandleTypeDef *phost);
 USBH_StatusTypeDef   USBH_LL_ResetPort(USBH_HandleTypeDef *phost);
+USBH_StatusTypeDef   USBH_LL_ResetPort2(USBH_HandleTypeDef *phost, unsigned resetIsActive);	/* Without delays */
 uint32_t             USBH_LL_GetLastXferSize(USBH_HandleTypeDef *phost,
                                              uint8_t pipe);
-
+uint_fast8_t    	 USBH_LL_GetSpeedReady(USBH_HandleTypeDef *phost);
 USBH_StatusTypeDef   USBH_LL_DriverVBUS(USBH_HandleTypeDef *phost,
                                         uint8_t state);
 

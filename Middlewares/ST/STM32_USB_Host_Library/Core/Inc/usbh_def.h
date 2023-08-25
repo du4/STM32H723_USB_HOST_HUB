@@ -348,7 +348,11 @@ typedef enum
 typedef enum
 {
   HOST_IDLE = 0U,
+  HOST_DEV_BUS_RESET_OFF,
+  HOST_DEV_BUS_RESET_ON,
   HOST_DEV_WAIT_FOR_ATTACHMENT,
+  HOST_DEV_BEFORE_ATTACHED,
+  HOST_DEV_ATTACHED_WAITSPEED,
   HOST_DEV_ATTACHED,
   HOST_DEV_DISCONNECTED,
   HOST_DETECT_DEVICE_SPEED,
@@ -361,6 +365,7 @@ typedef enum
   HOST_CLASS,
   HOST_SUSPENDED,
   HOST_ABORT_STATE,
+  HOST_DELAY
 } HOST_StateTypeDef;
 
 /* Following states are used for EnumerationState */
@@ -473,7 +478,7 @@ typedef struct
 {
   const char          *Name;
   uint8_t              ClassCode;
-  USBH_StatusTypeDef(*Init)(struct _USBH_HandleTypeDef *phost);
+  USBH_StatusTypeDef(*Init)(struct _USBH_HandleTypeDef *phost, const USBH_TargetTypeDef * dev_target);
   USBH_StatusTypeDef(*DeInit)(struct _USBH_HandleTypeDef *phost);
   USBH_StatusTypeDef(*Requests)(struct _USBH_HandleTypeDef *phost);
   USBH_StatusTypeDef(*BgndProcess)(struct _USBH_HandleTypeDef *phost);

@@ -35,9 +35,9 @@ static USBH_StatusTypeDef get_hub_request(USBH_HandleTypeDef *phost, uint8_t req
 static USBH_StatusTypeDef clear_port_feature(USBH_HandleTypeDef *phost, uint8_t feature, uint8_t port);
 static USBH_StatusTypeDef set_port_feature(USBH_HandleTypeDef *phost, uint8_t feature, uint8_t port);
 
-static void clear_port_changed(HUB_HandleTypeDef *HUB_Handle, uint8_t port);
-static uint8_t get_port_changed(HUB_HandleTypeDef *HUB_Handle);
-static uint8_t port_changed(HUB_HandleTypeDef *HUB_Handle, const uint8_t *b, unsigned len);
+//static void clear_port_changed(HUB_HandleTypeDef *HUB_Handle, uint8_t port);
+//static uint8_t get_port_changed(HUB_HandleTypeDef *HUB_Handle);
+//static uint8_t port_changed(HUB_HandleTypeDef *HUB_Handle, const uint8_t *b, unsigned len);
 
 static void detach(USBH_HandleTypeDef *phost, uint16_t idx);
 static void attach(USBH_HandleTypeDef *phost, uint16_t idx, uint8_t lowspeed);
@@ -198,7 +198,7 @@ void detach(USBH_HandleTypeDef *_phost, uint16_t idx)
 	USBH_UsrLog("detach %d", (int) idx);
 	return;
 	//USBH_HandleTypeDef *pphost = &hUSBHost[idx];
-	USBH_HandleTypeDef *pphost = _phost;
+//	USBH_HandleTypeDef *pphost = _phost;
 	//if (pphost->hubValid)
 	{
 			//USBH_UsrLog("detach %d", pphost->hubAddress [idx]);
@@ -400,7 +400,7 @@ static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, con
 
 static USBH_StatusTypeDef USBH_HUB_InterfaceDeInit (USBH_HandleTypeDef *phost )
 {
-	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
+//	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
 	USBH_UsrLog("USBH_HUB_InterfaceDeInit");
 //
 //	if(HUB_Handle->InPipe != 0x00)
@@ -421,7 +421,7 @@ static void USBH_HUB_ProcessDelay(
 	unsigned delayMS
 	)
 {
-	HUB_Handle->tickstart = sys_now();
+	HUB_Handle->tickstart = HAL_GetTick();
 	HUB_Handle->wait = delayMS;
 	HUB_Handle->ctl_state = HUB_DELAY;
 	HUB_Handle->ctl_state_push = state;
@@ -519,13 +519,13 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 		break;
 
 	case HUB_REQ_SCAN_STATUSES:
-		ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
+//		ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
 		status = get_hub_request(phost, USB_REQUEST_GET_STATUS, HUB_FEAT_SEL_PORT_CONN, HUB_Handle->hubClassRequestPort,
 				HUB_Handle->buffer, sizeof(USB_HUB_PORT_STATUS));
 		if (status == USBH_OK)
 		{
 			USBH_TargetTypeDef   * const tg = & HUB_Handle->Targets [HUB_Handle->hubClassRequestPort - 1];	/* Enumeration target */
-			ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
+//			ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
 
 			//printhex(HUB_Handle->buffer, HUB_Handle->buffer, sizeof (USB_HUB_PORT_STATUS));
 			USB_HUB_PORT_STATUS * const st = (USB_HUB_PORT_STATUS*) HUB_Handle->buffer;
@@ -647,7 +647,7 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 		break;
 
 	case HUB_DELAY:
-		if  ((sys_now() - HUB_Handle->tickstart) >= HUB_Handle->wait)
+		if  ((HAL_GetTick() - HUB_Handle->tickstart) >= HUB_Handle->wait)
 			HUB_Handle->ctl_state = HUB_Handle->ctl_state_push;
 		status = USBH_BUSY;
 		break;
@@ -664,7 +664,7 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 static USBH_StatusTypeDef USBH_HUB_Process(USBH_HandleTypeDef *phost)
 {
 	USBH_StatusTypeDef status = USBH_BUSY;	/* не требуется, но по стилю = чтобы продолжались вызовы */
-	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
+//	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
 	//ASSERT(HUB_Handle != NULL);
 //
 //    switch (HUB_Handle->state)
@@ -877,7 +877,7 @@ static USBH_StatusTypeDef USBH_HUB_Process(USBH_HandleTypeDef *phost)
 
 static USBH_StatusTypeDef USBH_HUB_SOFProcess(USBH_HandleTypeDef *phost)
 {
-	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
+//	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
 /*if(!phost->hub)
 {
 USBH_UsrLog("EEEERRRRRRROOORRRRRRR");
