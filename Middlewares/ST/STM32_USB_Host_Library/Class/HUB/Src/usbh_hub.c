@@ -540,6 +540,7 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 				else if (st->wPortStatus.PORT_HIGH_SPEED) tg->speed = USBH_SPEED_HIGH;
 				else tg->speed = USBH_SPEED_FULL;
 				tg->tt_prtaddr = HUB_Handle->hubClassRequestPort;
+
 				phost->currentTarget = tg;
 			}else{
 				USBH_memset(tg, 0, sizeof * tg);

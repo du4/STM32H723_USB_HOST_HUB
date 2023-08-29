@@ -609,8 +609,7 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
    case HOST_DEV_ATTACHED :
 
      USBH_UsrLog("USB device attached.");
-     if (phost->pUser != NULL)
-      {
+     if (phost->pUser != NULL){
         phost->pUser(phost, HOST_USER_CONNECTION);
       }
 
@@ -619,16 +618,10 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
       phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
       phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
 
-
       /* Open Control pipes */
-      (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U,
-    		  	  	  	  phost->currentTarget,
-                          USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
-
+      (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
       /* Open Control pipes */
-      (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U,
-    		  	  	  	  phost->currentTarget,
-                          USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
+      (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 
 #if (USBH_USE_OS == 1U)
       phost->os_msg = (uint32_t)USBH_PORT_EVENT;
@@ -945,31 +938,22 @@ static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
     case ENUM_IDLE:
       /* Get Device Desc for only 1st 8 bytes : To get EP0 MaxPacketSize */
       ReqStatus = USBH_Get_DevDesc(phost, 8U);
-      if (ReqStatus == USBH_OK)
-      {
+      if (ReqStatus == USBH_OK){
         phost->Control.pipe_size = phost->device.DevDesc.bMaxPacketSize;
         phost->EnumState = ENUM_GET_FULL_DEV_DESC;
 
         /* modify control channels configuration for MaxPacket size */
-        (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL,
-                            (uint16_t)phost->Control.pipe_size);
-
+        (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL,(uint16_t)phost->Control.pipe_size);
         /* Open Control pipes */
-        (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL,
-                            (uint16_t)phost->Control.pipe_size);
-      }
-      else if (ReqStatus == USBH_NOT_SUPPORTED)
-      {
+        (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
+      }else if (ReqStatus == USBH_NOT_SUPPORTED){
         USBH_ErrLog("Control error: Get Device Descriptor request failed");
         phost->device.EnumCnt++;
-        if (phost->device.EnumCnt > 3U)
-        {
+        if (phost->device.EnumCnt > 3U){
           /* Buggy Device can't complete get device desc request */
           USBH_UsrLog("Control error, Device not Responding Please unplug the Device.");
           phost->gState = HOST_ABORT_STATE;
-        }
-        else
-        {
+        }else{
           /* free control pipes */
           (void)USBH_FreePipe(phost, phost->Control.pipe_out);
           (void)USBH_FreePipe(phost, phost->Control.pipe_in);
@@ -977,9 +961,7 @@ static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
           /* Reset the USB Device */
           phost->gState = HOST_IDLE;
         }
-      }
-      else
-      {
+      }else{
         /* .. */
       }
       break;
