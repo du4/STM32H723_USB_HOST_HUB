@@ -608,7 +608,7 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
  	// С этого состояния начинается повторная енуменация для устройств на HUB
    case HOST_DEV_ATTACHED :
 
-       //USBH_UsrLog("USB device attached.");
+     USBH_UsrLog("USB device attached.");
      if (phost->pUser != NULL)
       {
         phost->pUser(phost, HOST_USER_CONNECTION);

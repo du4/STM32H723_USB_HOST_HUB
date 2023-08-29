@@ -326,7 +326,7 @@ static void debug_port(uint8_t *buff, __IO USB_HUB_PORT_STATUS *info)
 static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, const USBH_TargetTypeDef * target)
 {
 	HUB_HandleTypeDef *HUB_Handle;
-	//USBH_DbgLog ("USBH_HUB_InterfaceInit.");
+	USBH_DbgLog ("USBH_HUB_InterfaceInit.");
 	uint8_t interface;
 
 	USBH_StatusTypeDef status = USBH_FAIL ;
@@ -532,65 +532,24 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 			// ИНтерпретируем результаты
 			//debug_port(HUB_Handle->buffer, st);
 			// TODO: если выбрана енумерация LOW SPEED устройста, при установленной HIGH SPEED flash не проходит енумерация.
-			if (st->wPortStatus.PORT_ENABLE /* && HUB_Handle->hubClassRequestPort > 1 */)
-			{
-				if (st->wPortStatus.PORT_LOW_SPEED && 1)
-				{
-					// LOW SPEED, мышка - нашлась.
-					HUB_Handle->detectedPorts += 1;
-
-					tg->tt_hubaddr = phost->currentTarget->dev_address;
-					tg->dev_address = USBH_ADDRESS_DEFAULT;
-					tg->speed = USBH_SPEED_LOW;
-					tg->tt_prtaddr = HUB_Handle->hubClassRequestPort;
-
-					USBH_UsrLog("port %d status val=%04X: conn=%d, ena=%d, pwr=%d, hs=%d, ls=%d - LS device", HUB_Handle->hubClassRequestPort,
-							st->wPortStatus.val, st->wPortStatus.PORT_CONNECTION, st->wPortStatus.PORT_ENABLE,
-							st->wPortStatus.PORT_POWER, st->wPortStatus.PORT_HIGH_SPEED, st->wPortStatus.PORT_LOW_SPEED);
-
-					phost->currentTarget = tg;
-				}
-				else if (st->wPortStatus.PORT_HIGH_SPEED && 1)
-				{
-					// HIGH SPEED, флешка - нашлась.
-					HUB_Handle->detectedPorts += 1;
-
-					tg->tt_hubaddr = phost->currentTarget->dev_address;
-					tg->dev_address = USBH_ADDRESS_DEFAULT;
-					tg->speed = USBH_SPEED_HIGH;
-					tg->tt_prtaddr = HUB_Handle->hubClassRequestPort;
-
-					USBH_UsrLog("port %d status val=%04X: conn=%d, ena=%d, pwr=%d, hs=%d, ls=%d - HS device", HUB_Handle->hubClassRequestPort,
-							st->wPortStatus.val, st->wPortStatus.PORT_CONNECTION, st->wPortStatus.PORT_ENABLE,
-							st->wPortStatus.PORT_POWER, st->wPortStatus.PORT_HIGH_SPEED, st->wPortStatus.PORT_LOW_SPEED);
-
-					phost->currentTarget = tg;
-				}
-				else if (1 && 1)
-				{
-					// FULL SPEED
-					HUB_Handle->detectedPorts += 1;
-
-					tg->tt_hubaddr = phost->currentTarget->dev_address;
-					tg->dev_address = USBH_ADDRESS_DEFAULT;
-					tg->speed = USBH_SPEED_FULL;
-					tg->tt_prtaddr = HUB_Handle->hubClassRequestPort;
-
-					USBH_UsrLog("port %d status val=%04X: conn=%d, ena=%d, pwr=%d, hs=%d, ls=%d - FS device", HUB_Handle->hubClassRequestPort,
-							st->wPortStatus.val, st->wPortStatus.PORT_CONNECTION, st->wPortStatus.PORT_ENABLE,
-							st->wPortStatus.PORT_POWER, st->wPortStatus.PORT_HIGH_SPEED, st->wPortStatus.PORT_LOW_SPEED);
-
-					phost->currentTarget = tg;
-				}
-			}
-			else
-			{
+			if (st->wPortStatus.PORT_ENABLE /* && HUB_Handle->hubClassRequestPort > 1 */){
+				HUB_Handle->detectedPorts += 1;
+				tg->tt_hubaddr = phost->currentTarget->dev_address;
+				tg->dev_address = USBH_ADDRESS_DEFAULT;
+				if (st->wPortStatus.PORT_LOW_SPEED) tg->speed = USBH_SPEED_LOW;
+				else if (st->wPortStatus.PORT_HIGH_SPEED) tg->speed = USBH_SPEED_HIGH;
+				else tg->speed = USBH_SPEED_FULL;
+				tg->tt_prtaddr = HUB_Handle->hubClassRequestPort;
+				phost->currentTarget = tg;
+			}else{
 				USBH_memset(tg, 0, sizeof * tg);
-
-				USBH_UsrLog("port %d status val=%04X: conn=%d, ena=%d, pwr=%d, hs=%d, ls=%d", HUB_Handle->hubClassRequestPort,
-						st->wPortStatus.val, st->wPortStatus.PORT_CONNECTION, st->wPortStatus.PORT_ENABLE,
-						st->wPortStatus.PORT_POWER, st->wPortStatus.PORT_HIGH_SPEED, st->wPortStatus.PORT_LOW_SPEED);
 			}
+
+			USBH_UsrLog("port %d status val=%04X: conn=%d, ena=%d, pwr=%d, hs=%d, fs=%d, ls=%d", HUB_Handle->hubClassRequestPort,
+				st->wPortStatus.val, st->wPortStatus.PORT_CONNECTION, st->wPortStatus.PORT_ENABLE,
+				st->wPortStatus.PORT_POWER, st->wPortStatus.PORT_HIGH_SPEED,
+				(st->wPortStatus.PORT_HIGH_SPEED == 0 && st->wPortStatus.PORT_LOW_SPEED == 0 && st->wPortStatus.PORT_ENABLE)?1:0,
+				st->wPortStatus.PORT_LOW_SPEED);
 
 			// Reach last port
 			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort)
@@ -622,11 +581,11 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 	case HUB_REQ_SCAN_STATUSES_DONE:
 		USBH_UsrLog("=============================================");
 
-		if (HUB_Handle->detectedPorts != 1)
-		{
-			USBH_UsrLog("Wrong count (%d) USB devices on HUB. Only one supported", (int) HUB_Handle->detectedPorts);
-			return USBH_OK;
-		}
+//		if (HUB_Handle->detectedPorts != 1)
+//		{
+//			USBH_UsrLog("Wrong count (%d) USB devices on HUB. Only one supported", (int) HUB_Handle->detectedPorts);
+//			return USBH_OK;
+//		}
 
         /* free Interrupt pipe */
 		if (HUB_Handle->InPipe != 0x00)

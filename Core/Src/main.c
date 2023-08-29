@@ -131,11 +131,11 @@ extern ApplicationTypeDef Appli_state;
   MX_TIM4_Init();
   MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
-  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){
-      Error_Handler();
-  }
+//  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){
+//      Error_Handler();
+//  }
 
-  printf("USB HOST become to main loop.\r\n");
+  printf("\n\r===========================================\n\rUSB HOST become to main loop.\r\n");
 
 //  HAL_GPIO_WritePin(USB_FS_PWR_EN_GPIO_Port, USB_FS_PWR_EN_Pin, GPIO_PIN_RESET);
 
@@ -158,23 +158,23 @@ extern ApplicationTypeDef Appli_state;
 //    btnCounter++;
 //    if(btnCounter > BTN_DELAY){
 //    	btnCounter = 0;
-	if (Appli_state == APPLICATION_READY){
-		switch (CDC_STATE){
-			case CDC_SEND:{
-				status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, 3);
-				CDC_STATE = CDC_BUSY;
-				break;
-			}
-			case CDC_RECEIVE:{
-				memset(cdc_rx_buf, 0, USBHS_MAX_BULK_PACKET_SIZE);
-				status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, 62);
-				CDC_STATE = CDC_BUSY;
-			}
-			default:  break;
-			}
-//    	if(status == USBH_OK) status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
-//    	if(packetSendCounter != 0)	printf("send=%d.\n\r", packetSendCounter);
-	}
+//	if (Appli_state == APPLICATION_READY){
+//		switch (CDC_STATE){
+//			case CDC_SEND:{
+//				status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, 3);
+//				CDC_STATE = CDC_BUSY;
+//				break;
+//			}
+//			case CDC_RECEIVE:{
+//				memset(cdc_rx_buf, 0, USBHS_MAX_BULK_PACKET_SIZE);
+//				status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, 62);
+//				CDC_STATE = CDC_BUSY;
+//			}
+//			default:  break;
+//			}
+////    	if(status == USBH_OK) status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
+////    	if(packetSendCounter != 0)	printf("send=%d.\n\r", packetSendCounter);
+//	}
 //    }
 
     if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
