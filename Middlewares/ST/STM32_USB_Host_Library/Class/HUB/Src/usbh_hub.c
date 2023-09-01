@@ -323,8 +323,7 @@ static void debug_port(uint8_t *buff, __IO USB_HUB_PORT_STATUS *info)
 
 
 
-static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, const USBH_TargetTypeDef * target)
-{
+static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, const USBH_TargetTypeDef * target){
 	HUB_HandleTypeDef *HUB_Handle;
 	USBH_DbgLog ("USBH_HUB_InterfaceInit.");
 	uint8_t interface;
@@ -342,12 +341,10 @@ static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, con
 	{
 		status = USBH_FAIL;
 		USBH_DbgLog ("Too many hubs in chain.");
-	}
-	else
-	{
+	} else {
 		  // check USBH_free
 		static HUB_HandleTypeDef staticHUB_Handle;
-		phost->pActiveClass->pData = & staticHUB_Handle;
+		phost->pActiveClass->pData = &staticHUB_Handle;
 		//phost->hubDatas [phost->hubInstances] = (HUB_HandleTypeDef *) USBH_malloc(sizeof (HUB_HandleTypeDef));
 
 		HUB_Handle = phost->pActiveClass->pData;
@@ -382,8 +379,7 @@ static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, con
 
 	    USBH_UsrLog ("USBH_HUB_InterfaceInit: device poll=%d, length=%d", HUB_Handle->poll, HUB_Handle->length);
 
-	    if (phost->device.CfgDesc.Itf_Desc[phost->device.current_interface].Ep_Desc[0].bEndpointAddress & 0x80)
-	    {
+	    if (phost->device.CfgDesc.Itf_Desc[phost->device.current_interface].Ep_Desc[0].bEndpointAddress & 0x80) {
 	    	HUB_Handle->InEp = (phost->device.CfgDesc.Itf_Desc[phost->device.current_interface].Ep_Desc[0].bEndpointAddress);
 	    	HUB_Handle->InPipe  = USBH_AllocPipe(phost, HUB_Handle->InEp);
 
@@ -398,8 +394,7 @@ static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, con
 	return status;
 }
 
-static USBH_StatusTypeDef USBH_HUB_InterfaceDeInit (USBH_HandleTypeDef *phost )
-{
+static USBH_StatusTypeDef USBH_HUB_InterfaceDeInit (USBH_HandleTypeDef *phost ){
 //	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
 	USBH_UsrLog("USBH_HUB_InterfaceDeInit");
 //
@@ -428,8 +423,7 @@ static void USBH_HUB_ProcessDelay(
 }
 
 // state machine - for each hub port...
-static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
-{
+static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 	USBH_StatusTypeDef status = USBH_BUSY;
 	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
 
@@ -444,8 +438,7 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 		phost->Control.setup.b.wLength.w = sizeof(USB_HUB_DESCRIPTOR);
 
 		status = USBH_CtlReq(phost, HUB_Handle->buffer, sizeof(USB_HUB_DESCRIPTOR));
-		if (status == USBH_OK)
-		{
+		if (status == USBH_OK) {
 			USB_HUB_DESCRIPTOR *HUB_Desc = (USB_HUB_DESCRIPTOR*) HUB_Handle->buffer;
 			HUB_Handle->NumPorts = (HUB_Desc->bNbrPorts > MAX_HUB_PORTS) ? MAX_HUB_PORTS : HUB_Desc->bNbrPorts;
 			HUB_Handle->pwrGoodDelay = (HUB_Desc->bPwrOn2PwrGood * 2);
@@ -460,8 +453,7 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 	case HUB_REQ_SET_POWER:
 		// Turn on power for each hub port...
 		status = set_hub_port_power(phost, HUB_Handle->hubClassRequestPort);
-		if (status == USBH_OK)
-		{
+		if (status == USBH_OK) {
 			// Reach last port
 			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort)
 				HUB_Handle->ctl_state = HUB_WAIT_PWRGOOD;
@@ -489,24 +481,18 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 	case HUB_REQ_RESETS:
 		// Выполняем сброс всех портов
 		status = set_port_feature(phost, HUB_FEAT_SEL_PORT_RESET, HUB_Handle->hubClassRequestPort);
-		if (status == USBH_OK)
-		{
+		if (status == USBH_OK) {
 			// Reach last port
-			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort)
-			{
+			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort) {
 				HUB_Handle->ctl_state = HUB_REQ_RESETS_DONE;
 				//USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS_DONE, 25);	/* HS устройства не сразу становятся подключенными */
-			}
-			else
-			{
+			} else {
 				HUB_Handle->hubClassRequestPort ++;
 				HUB_Handle->ctl_state = HUB_REQ_RESETS;
 				//USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS, 25);	/* HS устройства не сразу становятся подключенными */
 			}
 			status = USBH_BUSY;
-		}
-		else
-		{
+		} else {
 			USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS, 25);	/* HS устройства не сразу становятся подключенными */
 		}
 		break;
@@ -522,8 +508,7 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost)
 //		ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
 		status = get_hub_request(phost, USB_REQUEST_GET_STATUS, HUB_FEAT_SEL_PORT_CONN, HUB_Handle->hubClassRequestPort,
 				HUB_Handle->buffer, sizeof(USB_HUB_PORT_STATUS));
-		if (status == USBH_OK)
-		{
+		if (status == USBH_OK) {
 			USBH_TargetTypeDef   * const tg = & HUB_Handle->Targets [HUB_Handle->hubClassRequestPort - 1];	/* Enumeration target */
 //			ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
 

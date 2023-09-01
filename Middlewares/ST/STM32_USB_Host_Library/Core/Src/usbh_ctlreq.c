@@ -129,17 +129,14 @@ USBH_StatusTypeDef USBH_Get_DevDesc(USBH_HandleTypeDef *phost, uint16_t length)
   * @retval USBH Status
   */
 USBH_StatusTypeDef USBH_Get_CfgDesc(USBH_HandleTypeDef *phost,
-                                    uint16_t length)
-
-{
+                                    uint16_t length) {
   USBH_StatusTypeDef status;
   uint8_t *pData = phost->device.CfgDesc_Raw;
 
   status = USBH_GetDescriptor(phost, (USB_REQ_RECIPIENT_DEVICE | USB_REQ_TYPE_STANDARD),
                               USB_DESC_CONFIGURATION, pData, length);
 
-  if (status == USBH_OK)
-  {
+  if (status == USBH_OK){
     /* Commands successfully sent and Response Received  */
     status = USBH_ParseCfgDesc(phost, pData, length);
   }
@@ -225,10 +222,8 @@ USBH_StatusTypeDef USBH_GetDescriptor(USBH_HandleTypeDef *phost,
   * @retval USBH Status
   */
 USBH_StatusTypeDef USBH_SetAddress(USBH_HandleTypeDef *phost,
-                                   uint8_t DeviceAddress)
-{
-  if (phost->RequestState == CMD_SEND)
-  {
+                                   uint8_t DeviceAddress){
+  if (phost->RequestState == CMD_SEND) {
     phost->Control.setup.b.bmRequestType = USB_H2D | USB_REQ_RECIPIENT_DEVICE | \
                                            USB_REQ_TYPE_STANDARD;
 
@@ -250,10 +245,8 @@ USBH_StatusTypeDef USBH_SetAddress(USBH_HandleTypeDef *phost,
   * @param  cfg_idx: Configuration value
   * @retval USBH Status
   */
-USBH_StatusTypeDef USBH_SetCfg(USBH_HandleTypeDef *phost, uint16_t cfg_idx)
-{
-  if (phost->RequestState == CMD_SEND)
-  {
+USBH_StatusTypeDef USBH_SetCfg(USBH_HandleTypeDef *phost, uint16_t cfg_idx){
+  if (phost->RequestState == CMD_SEND) {
     phost->Control.setup.b.bmRequestType = USB_H2D | USB_REQ_RECIPIENT_DEVICE
                                            | USB_REQ_TYPE_STANDARD;
 
@@ -274,11 +267,8 @@ USBH_StatusTypeDef USBH_SetCfg(USBH_HandleTypeDef *phost, uint16_t cfg_idx)
   * @param  altSetting: Interface value
   * @retval USBH Status
   */
-USBH_StatusTypeDef USBH_SetInterface(USBH_HandleTypeDef *phost, uint8_t ep_num,
-                                     uint8_t altSetting)
-{
-  if (phost->RequestState == CMD_SEND)
-  {
+USBH_StatusTypeDef USBH_SetInterface(USBH_HandleTypeDef *phost, uint8_t ep_num, uint8_t altSetting){
+  if (phost->RequestState == CMD_SEND) {
     phost->Control.setup.b.bmRequestType = USB_H2D | USB_REQ_RECIPIENT_INTERFACE
                                            | USB_REQ_TYPE_STANDARD;
 
@@ -568,8 +558,7 @@ static USBH_StatusTypeDef USBH_ParseCfgDesc(USBH_HandleTypeDef *phost, uint8_t *
 						"USBH_ParseCfgDesc: USB_DESC_TYPE_ASSOC: 0x%02X/x%02X, nif=%d, firstIf=%d",
 						piad->bFunctionClass, piad->bFunctionSubClass,
 						piad->bInterfaceCount, piad->bFirstInterface);
-			} else if (/*iadmode == 0 && */pdesc->bDescriptorType
-					== USB_DESC_TYPE_INTERFACE) {
+			} else if (/*iadmode == 0 && */pdesc->bDescriptorType == USB_DESC_TYPE_INTERFACE) {
 				pif = &cfg_desc->Itf_Desc[if_ix];
 				USBH_ParseInterfaceDesc(pif, (uint8_t*) pdesc);
 
