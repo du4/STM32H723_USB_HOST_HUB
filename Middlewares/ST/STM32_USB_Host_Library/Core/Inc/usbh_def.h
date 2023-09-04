@@ -510,6 +510,7 @@ typedef struct _USBH_HandleTypeDef
   CMD_StateTypeDef      RequestState;
   USBH_CtrlTypeDef      Control;
   USBH_DeviceTypeDef    device;
+  USBH_DeviceTypeDef    devices[4];
   USBH_TargetTypeDef	rootTarget;		/* Enumeration target */
   USBH_TargetTypeDef   *currentTarget;	/* Enumeration target */
   USBH_ClassTypeDef    *pClass[USBH_MAX_NUM_SUPPORTED_CLASS];

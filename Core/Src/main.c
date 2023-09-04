@@ -98,7 +98,6 @@ void MX_USB_HOST_Process(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-extern USBH_HandleTypeDef hUsbHostHS;
 extern ApplicationTypeDef Appli_state;
   /* USER CODE END 1 */
 
@@ -180,17 +179,8 @@ extern ApplicationTypeDef Appli_state;
     if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
     	btnCounter++;
     	if(btnCounter >= BTN_DELAY){
-//			HAL_GPIO_WritePin(ULPI_RES_GPIO_Port, ULPI_RES_Pin, SET);
-//			HAL_Delay(1000);
-//			HAL_GPIO_WritePin(ULPI_RES_GPIO_Port, ULPI_RES_Pin, RESET);
-//			HAL_Delay(1000);
-//
-//			MX_USB_HOST_Init();
-//			Appli_state = APPLICATION_IDLE;
-//			CDC_STATE = CDC_SEND;
-
 			btnCounter = 0;
-//    		HAL_GPIO_TogglePin(GreenLed_GPIO_Port, GreenLed_Pin);
+    		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
 //    		__HAL_TIM_SET_COUNTER(&htim4, 0);
 //    		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, 1);
 //    		printf("USB packet has sent with status %d.\n\r", status);

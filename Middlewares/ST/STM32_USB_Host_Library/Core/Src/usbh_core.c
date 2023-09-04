@@ -514,8 +514,7 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
   {
     case HOST_IDLE :
 
-		if (phost->device.is_connected)
-		{
+		if (phost->device.is_connected) {
 			USBH_UsrLog("USBH_Process: phost->device.is_connected");
 			/* Wait for 200 ms after connection */
 			USBH_ProcessDelay(phost, HOST_DEV_BUS_RESET_ON, 500);
@@ -563,22 +562,16 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
         phost->rootTarget.tt_prtaddr = HOSTDEV_DEFAULT_PRTADDR;
         phost->currentTarget = & phost->rootTarget;
       }else{
-        if (phost->Timeout > USBH_DEV_RESET_TIMEOUT)
-        {
+        if (phost->Timeout > USBH_DEV_RESET_TIMEOUT){
           phost->device.RstCnt++;
-          if (phost->device.RstCnt > 3U)
-          {
+          if (phost->device.RstCnt > 3U) {
             /* Buggy Device can't complete reset */
             USBH_UsrLog("USB Reset Failed, Please unplug the Device.");
             phost->gState = HOST_ABORT_STATE;
-          }
-          else
-          {
+          } else {
             phost->gState = HOST_IDLE;
           }
-        }
-        else
-        {
+        } else {
           phost->Timeout += 10U;
           USBH_Delay(10U);
         }
@@ -595,8 +588,7 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 
     case HOST_DEV_ATTACHED_WAITSPEED:
     	/* todo: переделать - сперва ждём, потом проверяем скорость */
-    	if (USBH_LL_GetSpeedReady(phost))
-    	{
+    	if (USBH_LL_GetSpeedReady(phost)) {
             /* Wait for 100 ms after Reset */
     		USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 100);
 
@@ -611,8 +603,8 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 
      USBH_UsrLog("USB device attached.");
      if (phost->pUser != NULL){
-        phost->pUser(phost, HOST_USER_CONNECTION);
-      }
+    	 phost->pUser(phost, HOST_USER_CONNECTION);
+     }
 
       phost->gState = HOST_ENUMERATION;
 
@@ -788,21 +780,20 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 
     case HOST_CLASS_REQUEST:
       /* process class standard control requests state machine */
-      if (phost->pActiveClass != NULL)
-      {
+      if (phost->pActiveClass != NULL) {
         status = phost->pActiveClass->Requests(phost);
 
         if (status == USBH_OK){
           phost->gState = HOST_CLASS;
         }else if (status == USBH_HUB_REQ_REENUMERATE){
-        	  phost->EnumState = ENUM_IDLE;
+        	phost->EnumState = ENUM_IDLE;
     		USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
-           status = USBH_OK;
-           phost->Control.state = CTRL_SETUP;
-           USBH_UsrLog("Device %s class require re-enumeration.", phost->pActiveClass->Name);
+            status = USBH_OK;
+            phost->Control.state = CTRL_SETUP;
+            USBH_UsrLog("Device %s class require re-enumeration.", phost->pActiveClass->Name);
         }else if (status == USBH_FAIL){
-          phost->gState = HOST_ABORT_STATE;
-          USBH_ErrLog("Device not responding Please Unplug.");
+        	phost->gState = HOST_ABORT_STATE;
+        	USBH_ErrLog("Device not responding Please Unplug.");
         }else{
           /* .. */
         }

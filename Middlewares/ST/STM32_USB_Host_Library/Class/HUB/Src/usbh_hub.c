@@ -436,11 +436,12 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 		phost->Control.setup.b.wValue.bw.lsb = USB_DESCRIPTOR_HUB;
 		phost->Control.setup.b.wIndex.w = 0;
 		phost->Control.setup.b.wLength.w = sizeof(USB_HUB_DESCRIPTOR);
-
+		//read HUB info:ports, power delay.
 		status = USBH_CtlReq(phost, HUB_Handle->buffer, sizeof(USB_HUB_DESCRIPTOR));
 		if (status == USBH_OK) {
 			USB_HUB_DESCRIPTOR *HUB_Desc = (USB_HUB_DESCRIPTOR*) HUB_Handle->buffer;
 			HUB_Handle->NumPorts = (HUB_Desc->bNbrPorts > MAX_HUB_PORTS) ? MAX_HUB_PORTS : HUB_Desc->bNbrPorts;
+//			HUB_Handle->NumPorts = 1; // !!!!TODO delete after device behind port enumeration.
 			HUB_Handle->pwrGoodDelay = (HUB_Desc->bPwrOn2PwrGood * 2);
 			//USBH_UsrLog("USBH_HUB_ClassRequest: NumPorts=%d, pwrGoodDelay=%d", HUB_Handle->NumPorts, HUB_Handle->pwrGoodDelay);
 
@@ -538,26 +539,19 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 				st->wPortStatus.PORT_LOW_SPEED);
 
 			// Reach last port
-			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort)
-			{
+			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort){
 				// выходим из цикла
 				HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES_DONE;
 				status = USBH_BUSY;
 
-			}
-			else
-			{
+			}else{
 				HUB_Handle->hubClassRequestPort ++;
 				status = USBH_BUSY;
 			}
 
-		}
-		else if (status == USBH_BUSY)
-		{
+		}else if (status == USBH_BUSY){
 
-		}
-		else
-		{
+		}else{
 			// выходим по ошибке
 			HUB_Handle->ctl_state = HUB_REQ_IDLE;
 			status = USBH_OK;
