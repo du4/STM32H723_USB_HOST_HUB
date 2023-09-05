@@ -382,7 +382,7 @@ static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, con
 	    	HUB_Handle->InPipe  = USBH_AllocPipe(phost, HUB_Handle->InEp);
 
 	    	// Open pipe for IN endpoint
-	    	USBH_OpenPipe(phost, HUB_Handle->InPipe, HUB_Handle->InEp, & HUB_Handle->target, USB_EP_TYPE_INTR, HUB_Handle->length);
+	    	USBH_OpenPipe(phost, HUB_Handle->InPipe, HUB_Handle->InEp, &HUB_Handle->target, USB_EP_TYPE_INTR, HUB_Handle->length);
 	    	USBH_LL_SetToggle (phost, HUB_Handle->InPipe, 0);
 	    }
 
@@ -649,9 +649,6 @@ USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 
 				HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES_DONE;
 				status = USBH_BUSY;
-
-
-
 			}else if (status == USBH_BUSY){
 
 			}else{
@@ -671,8 +668,7 @@ USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 	//		}
 
 	        /* free Interrupt pipe */
-			if (HUB_Handle->InPipe != 0x00)
-			{
+			if (HUB_Handle->InPipe != 0x00){
 				USBH_ClosePipe (phost, HUB_Handle->InPipe);
 				USBH_FreePipe  (phost, HUB_Handle->InPipe);
 				HUB_Handle->InPipe = 0;     // Reset the pipe as Free

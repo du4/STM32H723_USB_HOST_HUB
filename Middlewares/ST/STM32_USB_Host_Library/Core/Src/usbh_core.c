@@ -628,8 +628,8 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 				  phost->gState = HOST_CLASS;
 			  }
 		  }
-
 	  }
+
       break;
 
    case HUB_PORT_INIT:
@@ -800,7 +800,7 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
           phost->gState = HOST_CLASS;
         }else if (status == USBH_HUB_REQ_REENUMERATE){
         	phost->EnumState = ENUM_IDLE;
-    		USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
+    		USBH_ProcessDelay(phost, HUB_PORT_INIT, 5);
             status = USBH_OK;
             phost->Control.state = CTRL_SETUP;
             USBH_UsrLog("Device %s class require re-enumeration.", phost->pActiveClass->Name);
