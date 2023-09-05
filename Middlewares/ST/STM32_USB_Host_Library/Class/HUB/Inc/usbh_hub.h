@@ -222,4 +222,6 @@ typedef struct _HUB_Process
 extern USBH_ClassTypeDef  HUB_Class;
 #define USBH_HUB_CLASS    &HUB_Class
 
+USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost);
+
 #endif	// __USBH_HUB_H

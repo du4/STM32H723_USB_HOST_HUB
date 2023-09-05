@@ -332,13 +332,11 @@ static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, con
 
 	interface = USBH_FindInterface(phost, phost->pActiveClass->ClassCode, 0x00, 0xFF);
 
-	if (interface == 0xFF) /* No Valid Interface */
-	{
+	if (interface == 0xFF){ /* No Valid Interface */
 		status = USBH_FAIL;
 		USBH_DbgLog ("Cannot Find the interface for %s class.", phost->pActiveClass->Name);
 	}
-	if (phost->hubInstances >= USBH_MAX_NUM_INTERFACES)
-	{
+	if (phost->hubInstances >= USBH_MAX_NUM_INTERFACES){
 		status = USBH_FAIL;
 		USBH_DbgLog ("Too many hubs in chain.");
 	} else {
@@ -441,7 +439,6 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 		if (status == USBH_OK) {
 			USB_HUB_DESCRIPTOR *HUB_Desc = (USB_HUB_DESCRIPTOR*) HUB_Handle->buffer;
 			HUB_Handle->NumPorts = (HUB_Desc->bNbrPorts > MAX_HUB_PORTS) ? MAX_HUB_PORTS : HUB_Desc->bNbrPorts;
-//			HUB_Handle->NumPorts = 1; // !!!!TODO delete after device behind port enumeration.
 			HUB_Handle->pwrGoodDelay = (HUB_Desc->bPwrOn2PwrGood * 2);
 			//USBH_UsrLog("USBH_HUB_ClassRequest: NumPorts=%d, pwrGoodDelay=%d", HUB_Handle->NumPorts, HUB_Handle->pwrGoodDelay);
 
@@ -476,114 +473,116 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 		USBH_UsrLog("USBH_HUB_ClassRequest done: NumPorts=%d, pwrGoodDelay=%d", HUB_Handle->NumPorts, HUB_Handle->pwrGoodDelay);
 		USBH_UsrLog("=============================================");
 		HUB_Handle->hubClassRequestPort = 1;
-		HUB_Handle->ctl_state = HUB_REQ_RESETS;
-		break;
-
-	case HUB_REQ_RESETS:
-		// Выполняем сброс всех портов
-		status = set_port_feature(phost, HUB_FEAT_SEL_PORT_RESET, HUB_Handle->hubClassRequestPort);
-		if (status == USBH_OK) {
-			// Reach last port
-			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort) {
-				HUB_Handle->ctl_state = HUB_REQ_RESETS_DONE;
-				//USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS_DONE, 25);	/* HS устройства не сразу становятся подключенными */
-			} else {
-				HUB_Handle->hubClassRequestPort ++;
-				HUB_Handle->ctl_state = HUB_REQ_RESETS;
-				//USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS, 25);	/* HS устройства не сразу становятся подключенными */
-			}
-			status = USBH_BUSY;
-		} else {
-			USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS, 25);	/* HS устройства не сразу становятся подключенными */
-		}
-		break;
-
-	case HUB_REQ_RESETS_DONE:
-		// Строим карту подключенных портов
-		HUB_Handle->hubClassRequestPort = 1;
-		HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES;
-		status = USBH_BUSY;
-		break;
-
-	case HUB_REQ_SCAN_STATUSES:
-//		ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
-		status = get_hub_request(phost, USB_REQUEST_GET_STATUS, HUB_FEAT_SEL_PORT_CONN, HUB_Handle->hubClassRequestPort,
-				HUB_Handle->buffer, sizeof(USB_HUB_PORT_STATUS));
-		if (status == USBH_OK) {
-			USBH_TargetTypeDef   * const tg = & HUB_Handle->Targets [HUB_Handle->hubClassRequestPort - 1];	/* Enumeration target */
-//			ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
-
-			//printhex(HUB_Handle->buffer, HUB_Handle->buffer, sizeof (USB_HUB_PORT_STATUS));
-			USB_HUB_PORT_STATUS * const st = (USB_HUB_PORT_STATUS*) HUB_Handle->buffer;
-			// ИНтерпретируем результаты
-			//debug_port(HUB_Handle->buffer, st);
-			// TODO: если выбрана енумерация LOW SPEED устройста, при установленной HIGH SPEED flash не проходит енумерация.
-			if (st->wPortStatus.PORT_ENABLE /* && HUB_Handle->hubClassRequestPort > 1 */){
-				HUB_Handle->detectedPorts += 1;
-				tg->tt_hubaddr = phost->currentTarget->dev_address;
-				tg->dev_address = USBH_ADDRESS_DEFAULT;
-				if (st->wPortStatus.PORT_LOW_SPEED) tg->speed = USBH_SPEED_LOW;
-				else if (st->wPortStatus.PORT_HIGH_SPEED) tg->speed = USBH_SPEED_HIGH;
-				else tg->speed = USBH_SPEED_FULL;
-				tg->tt_prtaddr = HUB_Handle->hubClassRequestPort;
-
-				phost->currentTarget = tg;
-			}else{
-				USBH_memset(tg, 0, sizeof * tg);
-			}
-
-			USBH_UsrLog("port %d status val=%04X: conn=%d, ena=%d, pwr=%d, hs=%d, fs=%d, ls=%d", HUB_Handle->hubClassRequestPort,
-				st->wPortStatus.val, st->wPortStatus.PORT_CONNECTION, st->wPortStatus.PORT_ENABLE,
-				st->wPortStatus.PORT_POWER, st->wPortStatus.PORT_HIGH_SPEED,
-				(st->wPortStatus.PORT_HIGH_SPEED == 0 && st->wPortStatus.PORT_LOW_SPEED == 0 && st->wPortStatus.PORT_ENABLE)?1:0,
-				st->wPortStatus.PORT_LOW_SPEED);
-
-			// Reach last port
-			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort){
-				// выходим из цикла
-				HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES_DONE;
-				status = USBH_BUSY;
-
-			}else{
-				HUB_Handle->hubClassRequestPort ++;
-				status = USBH_BUSY;
-			}
-
-		}else if (status == USBH_BUSY){
-
-		}else{
-			// выходим по ошибке
-			HUB_Handle->ctl_state = HUB_REQ_IDLE;
-			status = USBH_OK;
-		}
-		break;
-
-	case HUB_REQ_SCAN_STATUSES_DONE:
-		USBH_UsrLog("=============================================");
-
-//		if (HUB_Handle->detectedPorts != 1)
-//		{
-//			USBH_UsrLog("Wrong count (%d) USB devices on HUB. Only one supported", (int) HUB_Handle->detectedPorts);
-//			return USBH_OK;
-//		}
-
-        /* free Interrupt pipe */
-		if (HUB_Handle->InPipe != 0x00)
-		{
-			USBH_ClosePipe (phost, HUB_Handle->InPipe);
-			USBH_FreePipe  (phost, HUB_Handle->InPipe);
-			HUB_Handle->InPipe = 0;     // Reset the pipe as Free
-		}
-
-        /* free control pipes */
-		USBH_ClosePipe (phost, phost->Control.pipe_out);
-		(void)USBH_FreePipe(phost, phost->Control.pipe_out);
-		USBH_ClosePipe (phost, phost->Control.pipe_in);
-		(void)USBH_FreePipe(phost, phost->Control.pipe_in);
-
 		HUB_Handle->ctl_state = HUB_ALREADY_INITED;
 		status = USBH_HUB_REQ_REENUMERATE;
+//		HUB_Handle->ctl_state = HUB_REQ_RESETS;
 		break;
+
+//	case HUB_REQ_RESETS:
+//		// Выполняем сброс всех портов
+//		status = set_port_feature(phost, HUB_FEAT_SEL_PORT_RESET, HUB_Handle->hubClassRequestPort);
+//		if (status == USBH_OK) {
+//			// Reach last port
+//			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort) {
+//				HUB_Handle->ctl_state = HUB_REQ_RESETS_DONE;
+//				//USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS_DONE, 25);	/* HS устройства не сразу становятся подключенными */
+//			} else {
+//				HUB_Handle->hubClassRequestPort ++;
+//				HUB_Handle->ctl_state = HUB_REQ_RESETS;
+//				//USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS, 25);	/* HS устройства не сразу становятся подключенными */
+//			}
+//			status = USBH_BUSY;
+//		} else {
+//			USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS, 25);	/* HS устройства не сразу становятся подключенными */
+//		}
+//		break;
+//
+//	case HUB_REQ_RESETS_DONE:
+//		// Строим карту подключенных портов
+//		HUB_Handle->hubClassRequestPort = 1;
+//		HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES;
+//		status = USBH_BUSY;
+//		break;
+//
+//	case HUB_REQ_SCAN_STATUSES:
+////		ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
+//		status = get_hub_request(phost, USB_REQUEST_GET_STATUS, HUB_FEAT_SEL_PORT_CONN, HUB_Handle->hubClassRequestPort,
+//				HUB_Handle->buffer, sizeof(USB_HUB_PORT_STATUS));
+//		if (status == USBH_OK) {
+//			USBH_TargetTypeDef   * const tg = & HUB_Handle->Targets [HUB_Handle->hubClassRequestPort - 1];	/* Enumeration target */
+////			ASSERT(HUB_Handle->hubClassRequestPort >= 1 && HUB_Handle->hubClassRequestPort <= HUB_Handle->hubClassRequestPort);
+//
+//			//printhex(HUB_Handle->buffer, HUB_Handle->buffer, sizeof (USB_HUB_PORT_STATUS));
+//			USB_HUB_PORT_STATUS * const st = (USB_HUB_PORT_STATUS*) HUB_Handle->buffer;
+//			// ИНтерпретируем результаты
+//			//debug_port(HUB_Handle->buffer, st);
+//			// TODO: если выбрана енумерация LOW SPEED устройста, при установленной HIGH SPEED flash не проходит енумерация.
+//			if (st->wPortStatus.PORT_ENABLE /* && HUB_Handle->hubClassRequestPort > 1 */){
+//				HUB_Handle->detectedPorts += 1;
+//				tg->tt_hubaddr = phost->currentTarget->dev_address;
+//				tg->dev_address = USBH_ADDRESS_DEFAULT;
+//				if (st->wPortStatus.PORT_LOW_SPEED) tg->speed = USBH_SPEED_LOW;
+//				else if (st->wPortStatus.PORT_HIGH_SPEED) tg->speed = USBH_SPEED_HIGH;
+//				else tg->speed = USBH_SPEED_FULL;
+//				tg->tt_prtaddr = HUB_Handle->hubClassRequestPort;
+//
+//				phost->currentTarget = tg;
+//			}else{
+//				USBH_memset(tg, 0, sizeof * tg);
+//			}
+//
+//			USBH_UsrLog("port %d status val=%04X: conn=%d, ena=%d, pwr=%d, hs=%d, fs=%d, ls=%d", HUB_Handle->hubClassRequestPort,
+//				st->wPortStatus.val, st->wPortStatus.PORT_CONNECTION, st->wPortStatus.PORT_ENABLE,
+//				st->wPortStatus.PORT_POWER, st->wPortStatus.PORT_HIGH_SPEED,
+//				(st->wPortStatus.PORT_HIGH_SPEED == 0 && st->wPortStatus.PORT_LOW_SPEED == 0 && st->wPortStatus.PORT_ENABLE)?1:0,
+//				st->wPortStatus.PORT_LOW_SPEED);
+//
+//			// Reach last port
+//			if (HUB_Handle->NumPorts <= HUB_Handle->hubClassRequestPort){
+//				// выходим из цикла
+//				HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES_DONE;
+//				status = USBH_BUSY;
+//
+//			}else{
+//				HUB_Handle->hubClassRequestPort ++;
+//				status = USBH_BUSY;
+//			}
+//
+//		}else if (status == USBH_BUSY){
+//
+//		}else{
+//			// выходим по ошибке
+//			HUB_Handle->ctl_state = HUB_REQ_IDLE;
+//			status = USBH_OK;
+//		}
+//		break;
+//
+//	case HUB_REQ_SCAN_STATUSES_DONE:
+//		USBH_UsrLog("=============================================");
+//
+////		if (HUB_Handle->detectedPorts != 1)
+////		{
+////			USBH_UsrLog("Wrong count (%d) USB devices on HUB. Only one supported", (int) HUB_Handle->detectedPorts);
+////			return USBH_OK;
+////		}
+//
+//        /* free Interrupt pipe */
+//		if (HUB_Handle->InPipe != 0x00)
+//		{
+//			USBH_ClosePipe (phost, HUB_Handle->InPipe);
+//			USBH_FreePipe  (phost, HUB_Handle->InPipe);
+//			HUB_Handle->InPipe = 0;     // Reset the pipe as Free
+//		}
+//
+//        /* free control pipes */
+//		USBH_ClosePipe (phost, phost->Control.pipe_out);
+//		(void)USBH_FreePipe(phost, phost->Control.pipe_out);
+//		USBH_ClosePipe (phost, phost->Control.pipe_in);
+//		(void)USBH_FreePipe(phost, phost->Control.pipe_in);
+//
+//		HUB_Handle->ctl_state = HUB_ALREADY_INITED;
+//		status = USBH_HUB_REQ_REENUMERATE;
+//		break;
 
 	case HUB_DELAY:
 		if  ((HAL_GetTick() - HUB_Handle->tickstart) >= HUB_Handle->wait)
@@ -597,6 +596,110 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 	}
 
 	return status;
+}
+
+USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
+	USBH_StatusTypeDef status = USBH_BUSY;
+		HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
+
+		switch (HUB_Handle->ctl_state){
+		case HUB_REQ_RESETS:
+			// Выполняем сброс портa
+			status = set_port_feature(phost, HUB_FEAT_SEL_PORT_RESET, HUB_Handle->hubClassRequestPort);
+			if (status == USBH_OK) {
+				HUB_Handle->ctl_state = HUB_REQ_RESETS_DONE;
+				status = USBH_BUSY;
+			} else {
+				USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS, 35);	/* HS устройства не сразу становятся подключенными */
+			}
+			break;
+
+		case HUB_REQ_RESETS_DONE:
+			USBH_UsrLog("HUB Port %d has been reset.", HUB_Handle->hubClassRequestPort);
+			HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES;
+			status = USBH_BUSY;
+			break;
+
+		case HUB_REQ_SCAN_STATUSES:
+			status = get_hub_request(phost, USB_REQUEST_GET_STATUS, HUB_FEAT_SEL_PORT_CONN, HUB_Handle->hubClassRequestPort,
+					HUB_Handle->buffer, sizeof(USB_HUB_PORT_STATUS));
+			if (status == USBH_OK) {
+				USBH_TargetTypeDef   * const tg = & HUB_Handle->Targets [HUB_Handle->hubClassRequestPort - 1];	/* Enumeration target */
+				USB_HUB_PORT_STATUS * const st = (USB_HUB_PORT_STATUS*) HUB_Handle->buffer;
+				if (st->wPortStatus.PORT_ENABLE){
+					HUB_Handle->detectedPorts += 1;
+					tg->tt_hubaddr = USBH_GetNextAddress(phost, 1);//phost->currentTarget->dev_address;
+					tg->dev_address = USBH_ADDRESS_DEFAULT;//USBH_ADDRESS_DEFAULT;
+					if (st->wPortStatus.PORT_LOW_SPEED) tg->speed = USBH_SPEED_LOW;
+					else if (st->wPortStatus.PORT_HIGH_SPEED) tg->speed = USBH_SPEED_HIGH;
+					else tg->speed = USBH_SPEED_FULL;
+					tg->tt_prtaddr = HUB_Handle->hubClassRequestPort;
+
+					phost->currentTarget = tg;
+				}else{
+					USBH_memset(tg, 0, sizeof * tg);
+				}
+
+				USBH_UsrLog("port %d status val=%04X: conn=%d, ena=%d, pwr=%d, hs=%d, fs=%d, ls=%d", HUB_Handle->hubClassRequestPort,
+					st->wPortStatus.val, st->wPortStatus.PORT_CONNECTION, st->wPortStatus.PORT_ENABLE,
+					st->wPortStatus.PORT_POWER, st->wPortStatus.PORT_HIGH_SPEED,
+					(st->wPortStatus.PORT_HIGH_SPEED == 0 && st->wPortStatus.PORT_LOW_SPEED == 0 && st->wPortStatus.PORT_ENABLE)?1:0,
+					st->wPortStatus.PORT_LOW_SPEED);
+
+
+				HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES_DONE;
+				status = USBH_BUSY;
+
+
+
+			}else if (status == USBH_BUSY){
+
+			}else{
+				// выходим по ошибке
+				HUB_Handle->ctl_state = HUB_REQ_IDLE;
+				status = USBH_OK;
+			}
+			break;
+
+		case HUB_REQ_SCAN_STATUSES_DONE:
+			USBH_UsrLog("=============================================");
+
+	//		if (HUB_Handle->detectedPorts != 1)
+	//		{
+	//			USBH_UsrLog("Wrong count (%d) USB devices on HUB. Only one supported", (int) HUB_Handle->detectedPorts);
+	//			return USBH_OK;
+	//		}
+
+	        /* free Interrupt pipe */
+			if (HUB_Handle->InPipe != 0x00)
+			{
+				USBH_ClosePipe (phost, HUB_Handle->InPipe);
+				USBH_FreePipe  (phost, HUB_Handle->InPipe);
+				HUB_Handle->InPipe = 0;     // Reset the pipe as Free
+			}
+
+	        /* free control pipes */
+			USBH_ClosePipe (phost, phost->Control.pipe_out);
+			(void)USBH_FreePipe(phost, phost->Control.pipe_out);
+			USBH_ClosePipe (phost, phost->Control.pipe_in);
+			(void)USBH_FreePipe(phost, phost->Control.pipe_in);
+
+			HUB_Handle->ctl_state = HUB_ALREADY_INITED;
+			status = USBH_OK;
+			break;
+
+	case HUB_DELAY:
+			if  ((HAL_GetTick() - HUB_Handle->tickstart) >= HUB_Handle->wait)
+				HUB_Handle->ctl_state = HUB_Handle->ctl_state_push;
+			status = USBH_BUSY;
+			break;
+
+	default:
+		status = USBH_OK;
+		break;
+	}
+
+		return status;
 }
 
 

@@ -599,32 +599,45 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
  		break;
 
  	// С этого состояния начинается повторная енуменация для устройств на HUB
-   case HOST_DEV_ATTACHED :
+   case HOST_DEV_ATTACHED:
+	 USBH_UsrLog("USB device attached.");
+	 if (phost->pUser != NULL){
+		 phost->pUser(phost, HOST_USER_CONNECTION);
+	 }
 
-     USBH_UsrLog("USB device attached.");
-     if (phost->pUser != NULL){
-    	 phost->pUser(phost, HOST_USER_CONNECTION);
-     }
+	  phost->gState = HOST_ENUMERATION;
 
-      phost->gState = HOST_ENUMERATION;
+	  phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
+	  phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
 
-      phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
-      phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
+	  /* Open Control pipes */
+	  (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
+	  /* Open Control pipes */
+	  (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 
-      /* Open Control pipes */
-      (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
-      /* Open Control pipes */
-      (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 
-#if (USBH_USE_OS == 1U)
-      phost->os_msg = (uint32_t)USBH_PORT_EVENT;
-#if (osCMSIS < 0x20000U)
-      (void)osMessagePut(phost->os_event, phost->os_msg, 0U);
-#else
-      (void)osMessageQueuePut(phost->os_event, &phost->os_msg, 0U, 0U);
-#endif
-#endif
+   // check HUB ports -> send reset for each port to find a device.
+	  if(phost->pActiveClass != 0){
+		  HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
+		  if(HUB_Handle->NumPorts != 0){
+			  if(HUB_Handle->hubClassRequestPort == 1){ //< HUB_Handle->NumPorts){
+//				  HUB_Handle->hubClassRequestPort++;
+				  HUB_Handle->ctl_state = HUB_REQ_RESETS;
+				  phost->gState = HUB_PORT_INIT;
+			  }else{
+				  phost->gState = HOST_CLASS;
+			  }
+		  }
+
+	  }
       break;
+
+   case HUB_PORT_INIT:
+	  status = checkHubPort(phost);
+	  if(status == USBH_OK){
+		  phost->gState = HOST_ENUMERATION;
+	  }
+	   break;
 
     case HOST_ENUMERATION:
       /* Check for enumeration status */
