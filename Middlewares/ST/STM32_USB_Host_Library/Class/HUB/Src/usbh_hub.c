@@ -425,8 +425,7 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 	USBH_StatusTypeDef status = USBH_BUSY;
 	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
 
-	switch (HUB_Handle->ctl_state)
-	{
+	switch (HUB_Handle->ctl_state){
 	case HUB_REQ_IDLE:
 		phost->Control.setup.b.bmRequestType = USB_D2H | USB_REQ_RECIPIENT_DEVICE | USB_REQ_TYPE_CLASS;
 		phost->Control.setup.b.bRequest = USB_REQ_GET_DESCRIPTOR;
@@ -441,7 +440,6 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 			HUB_Handle->NumPorts = (HUB_Desc->bNbrPorts > MAX_HUB_PORTS) ? MAX_HUB_PORTS : HUB_Desc->bNbrPorts;
 			HUB_Handle->pwrGoodDelay = (HUB_Desc->bPwrOn2PwrGood * 2);
 			//USBH_UsrLog("USBH_HUB_ClassRequest: NumPorts=%d, pwrGoodDelay=%d", HUB_Handle->NumPorts, HUB_Handle->pwrGoodDelay);
-
 			HUB_Handle->hubClassRequestPort = 1;
 			HUB_Handle->ctl_state = HUB_REQ_SET_POWER;
 			status = USBH_BUSY;
@@ -473,9 +471,9 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 		USBH_UsrLog("USBH_HUB_ClassRequest done: NumPorts=%d, pwrGoodDelay=%d", HUB_Handle->NumPorts, HUB_Handle->pwrGoodDelay);
 		USBH_UsrLog("=============================================");
 		HUB_Handle->hubClassRequestPort = 1;
-		HUB_Handle->ctl_state = HUB_ALREADY_INITED;
+//		HUB_Handle->ctl_state = HUB_ALREADY_INITED;
 		status = USBH_HUB_REQ_REENUMERATE;
-//		HUB_Handle->ctl_state = HUB_REQ_RESETS;
+		HUB_Handle->ctl_state = HUB_REQ_RESETS;
 		break;
 
 //	case HUB_REQ_RESETS:
@@ -600,7 +598,7 @@ static USBH_StatusTypeDef USBH_HUB_ClassRequest(USBH_HandleTypeDef *phost) {
 
 USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 	USBH_StatusTypeDef status = USBH_BUSY;
-		HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
+		HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas[0];
 
 		switch (HUB_Handle->ctl_state){
 		case HUB_REQ_RESETS:

@@ -605,38 +605,46 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 		 phost->pUser(phost, HOST_USER_CONNECTION);
 	 }
 
-	  phost->gState = HOST_ENUMERATION;
+//	 if(phost->pActiveClass == 0){
+		  phost->gState = HOST_ENUMERATION;
 
-	  phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
-	  phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
+		  phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
+		  phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
 
-	  /* Open Control pipes */
-	  (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
-	  /* Open Control pipes */
-	  (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
+		  /* Open Control pipes */
+		  (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
+		  /* Open Control pipes */
+		  (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 
-
-   // check HUB ports -> send reset for each port to find a device.
-	  if(phost->pActiveClass != 0){
-		  HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
-		  if(HUB_Handle->NumPorts != 0){
-			  if(HUB_Handle->hubClassRequestPort == 1){ //< HUB_Handle->NumPorts){
-//				  HUB_Handle->hubClassRequestPort++;
-				  HUB_Handle->ctl_state = HUB_REQ_RESETS;
-				  phost->gState = HUB_PORT_INIT;
-			  }else{
-				  phost->gState = HOST_CLASS;
-			  }
-		  }
-	  }
-
+//	 }else{
+//		 HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
+//		  if(HUB_Handle->NumPorts != 0){
+//			  if(HUB_Handle->hubClassRequestPort == 1){ //< HUB_Handle->NumPorts){
+////				  HUB_Handle->hubClassRequestPort++;
+//				  HUB_Handle->ctl_state = HUB_REQ_RESETS;
+//				  phost->gState = HUB_PORT_INIT;
+//			  }else{
+//				  phost->gState = HOST_CLASS;
+//			  }
+//		  }
+//	 }
       break;
 
    case HUB_PORT_INIT:
 	  status = checkHubPort(phost);
 	  if(status == USBH_OK){
-		  phost->gState = HOST_ENUMERATION;
+		  phost->gState = HUB_OPEN_PIPES;
 	  }
+	   break;
+
+   case HUB_OPEN_PIPES:
+	   phost->gState = HOST_ENUMERATION;
+	   /* Getting free pipes */
+	   phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
+	   phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
+	   /* Open Control pipes */
+	   (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
+	   (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 	   break;
 
     case HOST_ENUMERATION:
@@ -689,8 +697,7 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 
     case HOST_SET_CONFIGURATION:
       /* set configuration */
-      if (USBH_SetCfg(phost, (uint16_t)phost->device.CfgDesc.bConfigurationValue) == USBH_OK)
-      {
+      if (USBH_SetCfg(phost, (uint16_t)phost->device.CfgDesc.bConfigurationValue) == USBH_OK){
         phost->gState = HOST_SET_WAKEUP_FEATURE;
         USBH_UsrLog("Default configuration %02X set.", (unsigned) phost->device.CfgDesc.bConfigurationValue);
       }
