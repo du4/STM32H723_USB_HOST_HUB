@@ -602,13 +602,17 @@ USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 
 		switch (HUB_Handle->ctl_state){
 		case HUB_REQ_RESETS:
-			// Выполняем сброс портa
-			status = set_port_feature(phost, HUB_FEAT_SEL_PORT_RESET, HUB_Handle->hubClassRequestPort);
-			if (status == USBH_OK) {
-				HUB_Handle->ctl_state = HUB_REQ_RESETS_DONE;
-				status = USBH_BUSY;
-			} else {
-				USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS, 35);	/* HS устройства не сразу становятся подключенными */
+			if(HUB_Handle->hubClassRequestPort > HUB_Handle->NumPorts){
+				HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES_DONE;
+			}else{
+				// Выполняем сброс портa
+				status = set_port_feature(phost, HUB_FEAT_SEL_PORT_RESET, HUB_Handle->hubClassRequestPort);
+				if (status == USBH_OK) {
+					HUB_Handle->ctl_state = HUB_REQ_RESETS_DONE;
+					status = USBH_BUSY;
+				} else {
+					USBH_HUB_ProcessDelay(HUB_Handle, HUB_REQ_RESETS, 35);	/* HS устройства не сразу становятся подключенными */
+				}
 			}
 			break;
 
@@ -626,16 +630,18 @@ USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 				USB_HUB_PORT_STATUS * const st = (USB_HUB_PORT_STATUS*) HUB_Handle->buffer;
 				if (st->wPortStatus.PORT_ENABLE){
 					HUB_Handle->detectedPorts += 1;
-					tg->tt_hubaddr = USBH_GetNextAddress(phost, 1);//phost->currentTarget->dev_address;
-					tg->dev_address = USBH_ADDRESS_DEFAULT;//USBH_ADDRESS_DEFAULT;
+					tg->tt_hubaddr = phost->currentTarget->dev_address;
+					tg->dev_address = USBH_ADDRESS_DEFAULT;
 					if (st->wPortStatus.PORT_LOW_SPEED) tg->speed = USBH_SPEED_LOW;
 					else if (st->wPortStatus.PORT_HIGH_SPEED) tg->speed = USBH_SPEED_HIGH;
 					else tg->speed = USBH_SPEED_FULL;
 					tg->tt_prtaddr = HUB_Handle->hubClassRequestPort;
 
 					phost->currentTarget = tg;
+					HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES_DONE;
 				}else{
 					USBH_memset(tg, 0, sizeof * tg);
+					HUB_Handle->ctl_state = HUB_REQ_RESETS;
 				}
 
 				USBH_UsrLog("port %d status val=%04X: conn=%d, ena=%d, pwr=%d, hs=%d, fs=%d, ls=%d", HUB_Handle->hubClassRequestPort,
@@ -644,9 +650,10 @@ USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 					(st->wPortStatus.PORT_HIGH_SPEED == 0 && st->wPortStatus.PORT_LOW_SPEED == 0 && st->wPortStatus.PORT_ENABLE)?1:0,
 					st->wPortStatus.PORT_LOW_SPEED);
 
+				HUB_Handle->hubClassRequestPort++; //
 
-				HUB_Handle->ctl_state = HUB_REQ_SCAN_STATUSES_DONE;
 				status = USBH_BUSY;
+
 			}else if (status == USBH_BUSY){
 
 			}else{

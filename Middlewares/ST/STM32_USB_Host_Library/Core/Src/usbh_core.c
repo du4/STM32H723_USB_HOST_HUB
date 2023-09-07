@@ -510,10 +510,8 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 	}
   }
 
-  switch (phost->gState)
-  {
+  switch (phost->gState){
     case HOST_IDLE :
-
 		if (phost->device.is_connected) {
 			USBH_UsrLog("USBH_Process: phost->device.is_connected");
 			/* Wait for 200 ms after connection */
@@ -604,48 +602,38 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 	 if (phost->pUser != NULL){
 		 phost->pUser(phost, HOST_USER_CONNECTION);
 	 }
+	  /* Allocate Control pipes */
+	  phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
+	  phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
+	  /* Open Control pipes */
+	  (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
+	  (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 
-//	 if(phost->pActiveClass == 0){
+	  if(phost->hubInstances == 0){
 		  phost->gState = HOST_ENUMERATION;
-
-		  phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
-		  phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
-
-		  /* Open Control pipes */
-		  (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
-		  /* Open Control pipes */
-		  (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
-
-//	 }else{
-//		 HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
-//		  if(HUB_Handle->NumPorts != 0){
-//			  if(HUB_Handle->hubClassRequestPort == 1){ //< HUB_Handle->NumPorts){
-////				  HUB_Handle->hubClassRequestPort++;
-//				  HUB_Handle->ctl_state = HUB_REQ_RESETS;
-//				  phost->gState = HUB_PORT_INIT;
-//			  }else{
-//				  phost->gState = HOST_CLASS;
-//			  }
-//		  }
-//	 }
+	  } else {
+		  phost->gState = HUB_PORT_INIT;
+	  }
       break;
+
 
    case HUB_PORT_INIT:
 	  status = checkHubPort(phost);
 	  if(status == USBH_OK){
-		  phost->gState = HUB_OPEN_PIPES;
+		  phost->gState = HUB_OPEN_PIPES; // Open HUB device pipes
 	  }
-	   break;
+	  break;
 
-   case HUB_OPEN_PIPES:
-	   phost->gState = HOST_ENUMERATION;
+   case HUB_OPEN_PIPES: // open hub device pipes
 	   /* Getting free pipes */
 	   phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
 	   phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
 	   /* Open Control pipes */
 	   (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 	   (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
+	   phost->gState = HOST_ENUMERATION;
 	   break;
+
 
     case HOST_ENUMERATION:
       /* Check for enumeration status */
@@ -654,15 +642,34 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
         /* The function shall return USBH_OK when full enumeration is complete */
         USBH_UsrLog("Enumeration done for VID/PID: %04X/%04X.", phost->device.DevDesc.idVendor, phost->device.DevDesc.idProduct);
 
-        phost->device.current_interface = 0U;
 
-        if (phost->device.DevDesc.bNumConfigurations == 1U) {
-          USBH_UsrLog("This device has only 1 configuration.");
-          phost->gState = HOST_SET_CONFIGURATION;
-        } else {
-            USBH_UsrLog("This device has %u configurations. Need selection.", (unsigned) phost->device.DevDesc.bNumConfigurations);
-          phost->gState = HOST_INPUT;
-        }
+        if(phost->hubInstances != 0){
+			HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
+			if(HUB_Handle->hubClassRequestPort < HUB_Handle->NumPorts){
+// close current control pipes
+				(void)USBH_FreePipe(phost, phost->Control.pipe_out);
+				(void)USBH_FreePipe(phost, phost->Control.pipe_in);
+// select root hub target
+				phost->currentTarget = &phost->rootTarget;
+				HUB_Handle->ctl_state = HUB_REQ_RESETS;
+				phost->Control.state = CTRL_SETUP;
+				phost->EnumState = ENUM_IDLE;
+				USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
+			}else{
+				USBH_UsrLog("USB HUB pots scan is DONE!");
+				phost->gState = HOST_CLASS;
+			}
+		}else{
+			phost->device.current_interface = 0U;
+
+			if (phost->device.DevDesc.bNumConfigurations == 1U) {
+			  USBH_UsrLog("This device has only 1 configuration.");
+			  phost->gState = HOST_SET_CONFIGURATION;
+			} else {
+				USBH_UsrLog("This device has %u configurations. Need selection.", (unsigned) phost->device.DevDesc.bNumConfigurations);
+			  phost->gState = HOST_INPUT;
+			}
+		}
 
 #if (USBH_USE_OS == 1U)
         phost->os_msg = (uint32_t)USBH_STATE_CHANGED_EVENT;
@@ -760,6 +767,10 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
         	  continue;
           }
 
+          if (USB_HUB_CLASS == phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass){
+        	  phost->pHubClass = phost->pClass[idx];
+          }
+
           if (phost->pClass[idx]->ClassCode == phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass){
             phost->pActiveClass = phost->pClass[idx];
             break;
@@ -806,10 +817,25 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
         if (status == USBH_OK){
           phost->gState = HOST_CLASS;
         }else if (status == USBH_HUB_REQ_REENUMERATE){
-        	phost->EnumState = ENUM_IDLE;
-    		USBH_ProcessDelay(phost, HUB_PORT_INIT, 5);
-            status = USBH_OK;
-            phost->Control.state = CTRL_SETUP;
+
+//			if(phost->hubInstances != 0){
+//				HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
+//				if(HUB_Handle->hubClassRequestPort < HUB_Handle->NumPorts){
+//// close current control pipes
+//					(void)USBH_FreePipe(phost, phost->Control.pipe_out);
+//					(void)USBH_FreePipe(phost, phost->Control.pipe_in);
+//// select root hub target
+//					phost->currentTarget = &phost->rootTarget;
+//					HUB_Handle->ctl_state = HUB_REQ_RESETS;
+//					phost->gState = HOST_DEV_ATTACHED;
+//				}
+//			}
+//			phost->Control.state = CTRL_SETUP;
+
+			phost->EnumState = ENUM_IDLE;
+			USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
+			status = USBH_OK;
+
             USBH_UsrLog("Device %s class require re-enumeration.", phost->pActiveClass->Name);
         }else if (status == USBH_FAIL){
         	phost->gState = HOST_ABORT_STATE;
