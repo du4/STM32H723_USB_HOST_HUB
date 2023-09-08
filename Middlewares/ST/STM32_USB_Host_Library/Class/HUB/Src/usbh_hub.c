@@ -64,40 +64,33 @@ static USBH_StatusTypeDef hub_request(USBH_HandleTypeDef *phost, uint8_t request
 }
 
 // porta: 1..n
-static USBH_StatusTypeDef set_hub_port_power(USBH_HandleTypeDef *phost, uint8_t porta)
-{
+static USBH_StatusTypeDef set_hub_port_power(USBH_HandleTypeDef *phost, uint8_t porta){
 	return hub_request(phost, USB_REQ_SET_FEATURE, HUB_FEATURE_SEL_PORT_POWER, USB_DEVICE_REQUEST_SET, porta, 0, 0);
 }
 
 // porta: 1..n
-static USBH_StatusTypeDef get_hub_request(USBH_HandleTypeDef *phost, uint8_t request, uint8_t feature, uint8_t porta, uint8_t *buffer, uint16_t size)
-{
+static USBH_StatusTypeDef get_hub_request(USBH_HandleTypeDef *phost, uint8_t request, uint8_t feature, uint8_t porta, uint8_t *buffer, uint16_t size){
     return hub_request(phost, request, feature, USB_DEVICE_REQUEST_GET, porta, buffer, size);
 }
 
 // porta: 1..n
-static USBH_StatusTypeDef set_hub_request(USBH_HandleTypeDef *phost, uint8_t request, uint8_t feature, uint8_t porta)
-{
+static USBH_StatusTypeDef set_hub_request(USBH_HandleTypeDef *phost, uint8_t request, uint8_t feature, uint8_t porta){
     return hub_request(phost, request, feature, USB_DEVICE_REQUEST_SET, porta, 0, 0);
 }
 
 // porta: 1..n
-static USBH_StatusTypeDef clear_port_feature(USBH_HandleTypeDef *phost, uint8_t feature, uint8_t porta)
-{
+static USBH_StatusTypeDef clear_port_feature(USBH_HandleTypeDef *phost, uint8_t feature, uint8_t porta){
     return set_hub_request(phost, USB_REQUEST_CLEAR_FEATURE, feature, porta);
 }
 
 // porta: 1..n
-static USBH_StatusTypeDef set_port_feature(USBH_HandleTypeDef *phost, uint8_t feature, uint8_t porta)
-{
+static USBH_StatusTypeDef set_port_feature(USBH_HandleTypeDef *phost, uint8_t feature, uint8_t porta){
     return set_hub_request(phost, USB_REQUEST_SET_FEATURE, feature, porta);
 }
 //
 //// porta: 1..n
-//static void clear_port_changed(HUB_HandleTypeDef *HUB_Handle, uint8_t porta)
-//{
-//	switch (porta)
-//	{
+//static void clear_port_changed(HUB_HandleTypeDef *HUB_Handle, uint8_t porta){
+//	switch (porta){
 //	case 1:
 //		HUB_Handle->HUB_Change.bPorts.PORT_1 = 0;
 //		break;
@@ -125,8 +118,7 @@ static USBH_StatusTypeDef set_port_feature(USBH_HandleTypeDef *phost, uint8_t fe
 //	}
 //}
 //
-//static uint8_t get_port_changed(HUB_HandleTypeDef *HUB_Handle)
-//{
+//static uint8_t get_port_changed(HUB_HandleTypeDef *HUB_Handle){
 //	if (HUB_Handle->HUB_Change.bPorts.PORT_1)
 //		return 1;
 //	if (HUB_Handle->HUB_Change.bPorts.PORT_2)
@@ -147,11 +139,9 @@ static USBH_StatusTypeDef set_port_feature(USBH_HandleTypeDef *phost, uint8_t fe
 //	return 0;
 //}
 //
-//static uint8_t port_changed(HUB_HandleTypeDef *HUB_Handle, const uint8_t *b, unsigned len)
-//{
+//static uint8_t port_changed(HUB_HandleTypeDef *HUB_Handle, const uint8_t *b, unsigned len){
 //	HUB_Handle->HUB_Change.val = 0x00;
-//	if (b [0] != 0x00)
-//	{
+//	if (b [0] != 0x00){
 //
 //		if (b [0] & (0x01 << 1))
 //		{
@@ -193,14 +183,12 @@ static USBH_StatusTypeDef set_port_feature(USBH_HandleTypeDef *phost, uint8_t fe
 //	return HUB_Handle->HUB_Change.val > 0;
 //}
 
-void detach(USBH_HandleTypeDef *_phost, uint16_t idx)
-{
+void detach(USBH_HandleTypeDef *_phost, uint16_t idx){
 	USBH_UsrLog("detach %d", (int) idx);
 	return;
 	//USBH_HandleTypeDef *pphost = &hUSBHost[idx];
 //	USBH_HandleTypeDef *pphost = _phost;
-	//if (pphost->hubValid)
-	{
+	//if (pphost->hubValid)	{
 			//USBH_UsrLog("detach %d", pphost->hubAddress [idx]);
 //
 //		if(pphost->pUser != NULL)
@@ -233,13 +221,12 @@ void detach(USBH_HandleTypeDef *_phost, uint16_t idx)
 //
 //		pphost->hubInstances = 0;
 		//pphost->device.is_connected = 0;
-	}
+//	}
 }
 
 static void attach(USBH_HandleTypeDef *phost,
 		uint16_t idx, 	// Index of port on HUB
-		uint8_t lowspeed)
-{
+		uint8_t lowspeed){
 	USBH_UsrLog("attach %d", idx);
 	return;
 //	//USBH_HandleTypeDef *pphost = &hUSBHost[idx];
@@ -296,8 +283,7 @@ static void attach(USBH_HandleTypeDef *phost,
 //USBH_UsrLog("HUB stuff ok");
 }
 
-static void debug_port(uint8_t *buff, __IO USB_HUB_PORT_STATUS *info)
-{
+static void debug_port(uint8_t *buff, __IO USB_HUB_PORT_STATUS *info){
 #if 0
     LOG1("PORT STATUS [%02X %02X %02X %02X] ", buff[0], buff[1], buff[2], buff[3]);
 
@@ -412,8 +398,7 @@ static void USBH_HUB_ProcessDelay(
 		HUB_HandleTypeDef *HUB_Handle,
 		HUB_CtlStateTypeDef state,
 	unsigned delayMS
-	)
-{
+	){
 	HUB_Handle->tickstart = HAL_GetTick();
 	HUB_Handle->wait = delayMS;
 	HUB_Handle->ctl_state = HUB_DELAY;
@@ -664,7 +649,7 @@ USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 			break;
 
 		case HUB_REQ_SCAN_STATUSES_DONE:
-			USBH_UsrLog("=============================================");
+//			USBH_UsrLog("=============================================");
 
 	//		if (HUB_Handle->detectedPorts != 1)
 	//		{
@@ -918,8 +903,7 @@ static USBH_StatusTypeDef USBH_HUB_Process(USBH_HandleTypeDef *phost)
 	return status;
 }
 
-static USBH_StatusTypeDef USBH_HUB_SOFProcess(USBH_HandleTypeDef *phost)
-{
+static USBH_StatusTypeDef USBH_HUB_SOFProcess(USBH_HandleTypeDef *phost){
 //	HUB_HandleTypeDef * const HUB_Handle = phost->hubDatas [0];
 /*if(!phost->hub)
 {
