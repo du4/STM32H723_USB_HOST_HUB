@@ -178,7 +178,7 @@ typedef enum
 	HUB_REQ_SCAN_STATUSES,
 	HUB_REQ_SCAN_STATUSES_DONE,
 	HUB_DELAY,
-	HUB_ALREADY_INITED
+	HUB_PORT_ALREADY_INITED
 }
 HUB_CtlStateTypeDef;
 
@@ -221,5 +221,7 @@ typedef struct _HUB_Process
 
 extern USBH_ClassTypeDef  HUB_Class;
 #define USBH_HUB_CLASS    &HUB_Class
+
+USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost);
 
 #endif	// __USBH_HUB_H
