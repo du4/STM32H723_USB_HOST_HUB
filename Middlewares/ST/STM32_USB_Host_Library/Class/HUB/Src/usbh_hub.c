@@ -339,7 +339,7 @@ static USBH_StatusTypeDef USBH_HUB_InterfaceInit (USBH_HandleTypeDef *phost, con
 
 		(void)USBH_memcpy(& HUB_Handle->target, target, sizeof HUB_Handle->target);
 
-		HUB_Handle->parrent = phost->hubInstances == 1 ? NULL : phost->hubDatas [phost->hubInstances - 1];	/* todo: fix for chans */
+		HUB_Handle->parrent = phost->hubInstances == 1 ? NULL : phost->hubDatas [phost->hubInstances - 1 - 1];	/* todo: fix for chans */
 
 		HUB_Handle->NumPorts = 0;
 		HUB_Handle->pwrGoodDelay = 0;
@@ -637,7 +637,10 @@ USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 
 				HUB_Handle->hubClassRequestPort++; //
 
+
 				status = USBH_BUSY;
+
+
 
 			}else if (status == USBH_BUSY){
 
@@ -650,9 +653,7 @@ USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 
 		case HUB_REQ_SCAN_STATUSES_DONE:
 //			USBH_UsrLog("=============================================");
-
-	//		if (HUB_Handle->detectedPorts != 1)
-	//		{
+	//		if (HUB_Handle->detectedPorts != 1){
 	//			USBH_UsrLog("Wrong count (%d) USB devices on HUB. Only one supported", (int) HUB_Handle->detectedPorts);
 	//			return USBH_OK;
 	//		}
@@ -670,8 +671,13 @@ USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost){
 			USBH_ClosePipe (phost, phost->Control.pipe_in);
 			(void)USBH_FreePipe(phost, phost->Control.pipe_in);
 
-			HUB_Handle->ctl_state = HUB_ALREADY_INITED;
-			status = USBH_OK;
+			HUB_Handle->ctl_state = HUB_PORT_ALREADY_INITED;
+
+			if(HUB_Handle->hubClassRequestPort > HUB_Handle->NumPorts){
+				status = USBH_HUB_PORTS_ARE_INITIALIZED;
+			}else{
+				status = USBH_OK;
+			}
 			break;
 
 	case HUB_DELAY:
@@ -925,8 +931,7 @@ return USBH_OK;
 	return USBH_OK;
 }
 
-USBH_ClassTypeDef  HUB_Class =
-{
+USBH_ClassTypeDef  HUB_Class = {
 	"HUB",
 	USB_HUB_CLASS,
 	USBH_HUB_InterfaceInit,

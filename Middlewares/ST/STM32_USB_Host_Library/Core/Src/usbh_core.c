@@ -596,6 +596,8 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 	  status = checkHubPort(phost);
 	  if(status == USBH_OK){
 		  phost->gState = HUB_OPEN_PIPES; // Open HUB device pipes
+	  }else if (status == USBH_HUB_PORTS_ARE_INITIALIZED){
+		  phost->gState = HOST_CLASS;
 	  }
 	  break;
 
@@ -618,23 +620,23 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
         USBH_UsrLog("Enumeration done for VID/PID: %04X/%04X.", phost->device.DevDesc.idVendor, phost->device.DevDesc.idProduct);
 
 
-        if(phost->hubInstances != 0){
-			HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
-			if(HUB_Handle->hubClassRequestPort < HUB_Handle->NumPorts){
-// close current control pipes
-				(void)USBH_FreePipe(phost, phost->Control.pipe_out);
-				(void)USBH_FreePipe(phost, phost->Control.pipe_in);
-// select root hub target
-				phost->currentTarget = &phost->rootTarget;
-				HUB_Handle->ctl_state = HUB_REQ_RESETS;
-				phost->Control.state = CTRL_SETUP;
-				phost->EnumState = ENUM_IDLE;
-				USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
-			}else{
-				USBH_UsrLog("USB HUB pots scan is DONE!");
-				phost->gState = HOST_CLASS;
-			}
-		}else{
+//        if(phost->hubInstances != 0){
+//			HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
+//			if(HUB_Handle->hubClassRequestPort < HUB_Handle->NumPorts){
+//// close current control pipes
+//				(void)USBH_FreePipe(phost, phost->Control.pipe_out);
+//				(void)USBH_FreePipe(phost, phost->Control.pipe_in);
+//// select root hub target
+//				phost->currentTarget = &phost->rootTarget;
+//				HUB_Handle->ctl_state = HUB_REQ_RESETS;
+//				phost->Control.state = CTRL_SETUP;
+//				phost->EnumState = ENUM_IDLE;
+//				USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
+//			}else{
+//				USBH_UsrLog("USB HUB pots scan is DONE!");
+//				phost->gState = HOST_CLASS;
+//			}
+//		}else{
 			phost->device.current_interface = 0U;
 
 			if (phost->device.DevDesc.bNumConfigurations == 1U) {
@@ -644,7 +646,7 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 				USBH_UsrLog("This device has %u configurations. Need selection.", (unsigned) phost->device.DevDesc.bNumConfigurations);
 			  phost->gState = HOST_INPUT;
 			}
-		}
+//		}
       }
       break;
 
@@ -700,13 +702,13 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 
         for (idx = 0U; idx < phost->ClassNumber; idx++){
         	/* выключаем из рассмотрения HUB CLASS, если он уже один раз сработал */
-          if (phost->hubInstances != 0 && phost->pClass[idx] == &HUB_Class){
+          if (phost->hubInstances != 1 && phost->pClass[idx] == &HUB_Class){
         	  continue;
           }
-
-          if (USB_HUB_CLASS == phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass){
-        	  phost->pHubClass = phost->pClass[idx];
-          }
+//
+//          if (USB_HUB_CLASS == phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass){
+//        	  phost->pHubClass = phost->pClass[idx];
+//          }
 
           if (phost->pClass[idx]->ClassCode == phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass){
             phost->pActiveClass = phost->pClass[idx];
@@ -722,15 +724,11 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 
             /* Inform user that a class has been activated */
             phost->pUser(phost, HOST_USER_CLASS_SELECTED);
-          }
-          else
-          {
+          }else{
             phost->gState = HOST_ABORT_STATE;
             USBH_UsrLog("Device not supporting %s class.", phost->pActiveClass->Name);
           }
-        }
-        else
-        {
+        }else{
           phost->gState = HOST_ABORT_STATE;
           USBH_UsrLog("No registered class with code %02X for this device.", (unsigned) phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass);
         }
@@ -738,6 +736,30 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
       break;
 
     case HOST_CLASS_REQUEST:
+
+	if(phost->currentTarget != &phost->rootTarget){
+		HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
+		if(HUB_Handle->hubClassRequestPort < HUB_Handle->NumPorts){
+// close current control pipes
+			(void)USBH_FreePipe(phost, phost->Control.pipe_out);
+			(void)USBH_FreePipe(phost, phost->Control.pipe_in);
+// select root hub target
+			phost->currentTarget = &phost->rootTarget;
+			HUB_Handle->ctl_state = HUB_REQ_RESETS;
+			phost->Control.state = CTRL_SETUP;
+			phost->EnumState = ENUM_IDLE;
+			USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
+
+			phost->devices[HUB_Handle->detectedPorts-1] = phost->device;
+
+		}else{
+			USBH_UsrLog("USB HUB pots scan is DONE!");
+			phost->gState = HOST_CLASS;
+		}
+		break;
+	}
+
+
       /* process class standard control requests state machine */
       if (phost->pActiveClass != NULL) {
         status = phost->pActiveClass->Requests(phost);

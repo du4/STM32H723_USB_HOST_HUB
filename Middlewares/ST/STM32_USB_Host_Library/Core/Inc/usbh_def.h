@@ -341,6 +341,7 @@ typedef enum
   USBH_UNRECOVERED_ERROR,
   USBH_ERROR_SPEED_UNKNOWN,
   USBH_HUB_REQ_REENUMERATE,
+  USBH_HUB_PORTS_ARE_INITIALIZED
 } USBH_StatusTypeDef;
 
 
@@ -371,6 +372,7 @@ typedef enum
   HOST_ENUMERATION,
   HUB_PORT_INIT,
   HUB_OPEN_PIPES,
+  HOST_HUB_INIT_DONE,
   HOST_CLASS_REQUEST,
   HOST_INPUT,
   HOST_SET_CONFIGURATION,
@@ -540,7 +542,7 @@ typedef struct _USBH_HandleTypeDef
 #endif
 
   uint8_t hubInstances;
-  void *   hubDatas [USBH_MAX_NUM_INTERFACES];
+  void* hubDatas [USBH_MAX_NUM_INTERFACES];
 
   uint8_t allocaddress;
 
