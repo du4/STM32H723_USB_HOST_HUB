@@ -24,6 +24,7 @@
 #include "usbh_hub.h"
 
 extern USBH_ClassTypeDef  HUB_Class;
+extern HUB_HandleTypeDef* pCurrentHubHandle;
 //extern USBH_HandleTypeDef hUsbHostHS;
 
 /** @addtogroup USBH_LIB
@@ -118,46 +119,9 @@ USBH_StatusTypeDef  USBH_Init(USBH_HandleTypeDef *phost,
   phost->device.is_ReEnumerated = 0U;
 
   /* Assign User process */
-  if (pUsrFunc != NULL)
-  {
+  if (pUsrFunc != NULL){
     phost->pUser = pUsrFunc;
   }
-
-#if (USBH_USE_OS == 1U)
-#if (osCMSIS < 0x20000U)
-
-  /* Create USB Host Queue */
-  osMessageQDef(USBH_Queue, MSGQUEUE_OBJECTS, uint16_t);
-  phost->os_event = osMessageCreate(osMessageQ(USBH_Queue), NULL);
-
-  /* Create USB Host Task */
-#if defined (USBH_PROCESS_STACK_SIZE)
-  osThreadDef(USBH_Thread, USBH_Process_OS, USBH_PROCESS_PRIO, 0U, USBH_PROCESS_STACK_SIZE);
-#else
-  osThreadDef(USBH_Thread, USBH_Process_OS, USBH_PROCESS_PRIO, 0U, 8U * configMINIMAL_STACK_SIZE);
-#endif /* defined (USBH_PROCESS_STACK_SIZE) */
-
-  phost->thread = osThreadCreate(osThread(USBH_Thread), phost);
-
-#else
-
-  /* Create USB Host Queue */
-  phost->os_event = osMessageQueueNew(MSGQUEUE_OBJECTS, sizeof(uint32_t), NULL);
-
-  /* Create USB Host Task */
-  USBH_Thread_Atrr.name = "USBH_Queue";
-
-#if defined (USBH_PROCESS_STACK_SIZE)
-  USBH_Thread_Atrr.stack_size = USBH_PROCESS_STACK_SIZE;
-#else
-  USBH_Thread_Atrr.stack_size = (8U * configMINIMAL_STACK_SIZE);
-#endif /* defined (USBH_PROCESS_STACK_SIZE) */
-
-  USBH_Thread_Atrr.priority = USBH_PROCESS_PRIO;
-  phost->thread = osThreadNew(USBH_Process_OS, phost, &USBH_Thread_Atrr);
-
-#endif /* (osCMSIS < 0x20000U) */
-#endif /* (USBH_USE_OS == 1U) */
 
   /* Initialize low level driver */
   (void)USBH_LL_Init(phost);
@@ -184,26 +148,9 @@ USBH_StatusTypeDef USBH_DeInit(USBH_HandleTypeDef *phost)
   phost->device.RstCnt = 0U;
   phost->device.EnumCnt = 0U;
 
-  if (phost->pData != NULL)
-  {
+  if (phost->pData != NULL){
     (void)USBH_LL_Stop(phost);
   }
-
-#if (USBH_USE_OS == 1U)
-#if (osCMSIS < 0x20000U)
-
-  /* Free allocated resource for USBH process */
-  (void)osThreadTerminate(phost->thread);
-  (void)osMessageDelete(phost->os_event);
-
-#else
-
-  /* Free allocated resource for USBH process */
-  (void)osThreadTerminate(phost->thread);
-  (void)osMessageQueueDelete(phost->os_event);
-
-#endif /* (osCMSIS < 0x20000U) */
-#endif /* (USBH_USE_OS == 1U) */
 
   (void)USBH_LL_DeInit(phost);	/* Added by MGS */
 
@@ -217,18 +164,15 @@ USBH_StatusTypeDef USBH_DeInit(USBH_HandleTypeDef *phost)
   * @param  phost: Host Handle
   * @retval USBH Status
   */
-static USBH_StatusTypeDef DeInitStateMachine(USBH_HandleTypeDef *phost)
-{
+static USBH_StatusTypeDef DeInitStateMachine(USBH_HandleTypeDef *phost){
   uint32_t i = 0U;
 
   /* Clear Pipes flags*/
-  for (i = 0U; i < USBH_MAX_PIPES_NBR; i++)
-  {
+  for (i = 0U; i < USBH_MAX_PIPES_NBR; i++)  {
     phost->Pipes[i] = 0U;
   }
 
-  for (i = 0U; i < USBH_MAX_DATA_BUFFER; i++)
-  {
+  for (i = 0U; i < USBH_MAX_DATA_BUFFER; i++){
     phost->device.Data[i] = 0U;
   }
 
@@ -272,26 +216,19 @@ static USBH_StatusTypeDef DeInitStateMachine(USBH_HandleTypeDef *phost)
   * @param  pclass: Class handle
   * @retval USBH Status
   */
-USBH_StatusTypeDef USBH_RegisterClass(USBH_HandleTypeDef *phost, USBH_ClassTypeDef *pclass)
-{
+USBH_StatusTypeDef USBH_RegisterClass(USBH_HandleTypeDef *phost, USBH_ClassTypeDef *pclass){
   USBH_StatusTypeDef status = USBH_OK;
 
-  if (pclass != NULL)
-  {
-    if (phost->ClassNumber < USBH_MAX_NUM_SUPPORTED_CLASS)
-    {
+  if (pclass != NULL){
+    if (phost->ClassNumber < USBH_MAX_NUM_SUPPORTED_CLASS){
       /* link the class to the USB Host handle */
       phost->pClass[phost->ClassNumber++] = pclass;
       status = USBH_OK;
-    }
-    else
-    {
+    }else{
       USBH_ErrLog("Max Class Number reached");
       status = USBH_FAIL;
     }
-  }
-  else
-  {
+  }else{
     USBH_ErrLog("Invalid Class handle");
     status = USBH_FAIL;
   }
@@ -307,21 +244,17 @@ USBH_StatusTypeDef USBH_RegisterClass(USBH_HandleTypeDef *phost, USBH_ClassTypeD
   * @param  interface: Interface number
   * @retval USBH Status
   */
-USBH_StatusTypeDef USBH_SelectInterface(USBH_HandleTypeDef *phost, uint8_t interface)
-{
+USBH_StatusTypeDef USBH_SelectInterface(USBH_HandleTypeDef *phost, uint8_t interface){
   USBH_StatusTypeDef status = USBH_OK;
 
-  if (interface < phost->device.CfgDesc.bNumInterfaces)
-  {
+  if (interface < phost->device.CfgDesc.bNumInterfaces){
     phost->device.current_interface = interface;
     USBH_UsrLog("Switching to Interface (#%d), Class/SubClass/Protocol: %02Xh/%02Xh/%02Xh",
     		interface,
 			phost->device.CfgDesc.Itf_Desc[interface].bInterfaceClass,
     		phost->device.CfgDesc.Itf_Desc[interface].bInterfaceSubClass,
 			phost->device.CfgDesc.Itf_Desc[interface].bInterfaceProtocol);
-  }
-  else
-  {
+  }else{
     USBH_ErrLog("Cannot Select This Interface  (#%d).", interface);
     status = USBH_FAIL;
   }
@@ -337,8 +270,7 @@ USBH_StatusTypeDef USBH_SelectInterface(USBH_HandleTypeDef *phost, uint8_t inter
   * @param  interface: Interface index
   * @retval Class Code
   */
-uint8_t USBH_GetActiveClass(USBH_HandleTypeDef *phost)
-{
+uint8_t USBH_GetActiveClass(USBH_HandleTypeDef *phost){
   return (phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass);
 }
 
@@ -353,8 +285,7 @@ uint8_t USBH_GetActiveClass(USBH_HandleTypeDef *phost)
   * @retval interface index in the configuration structure
   * @note : (1)interface index 0xFF means interface index not found
   */
-uint8_t  USBH_FindInterface(USBH_HandleTypeDef *phost, uint8_t Class, uint8_t SubClass, uint8_t Protocol)
-{
+uint8_t  USBH_FindInterface(USBH_HandleTypeDef *phost, uint8_t Class, uint8_t SubClass, uint8_t Protocol){
   USBH_InterfaceDescTypeDef *pif;
   USBH_CfgDescTypeDef *pcfg;
   uint8_t if_ix = 0U;
@@ -362,8 +293,7 @@ uint8_t  USBH_FindInterface(USBH_HandleTypeDef *phost, uint8_t Class, uint8_t Su
   pif = (USBH_InterfaceDescTypeDef *)NULL;
   pcfg = &phost->device.CfgDesc;
 
-  while (if_ix < USBH_MAX_NUM_INTERFACES)
-  {
+  while (if_ix < USBH_MAX_NUM_INTERFACES)  {
     pif = &pcfg->Itf_Desc[if_ix];
     if (((pif->bInterfaceClass == Class) || (Class == 0xFFU)) &&
         ((pif->bInterfaceSubClass == SubClass) || (SubClass == 0xFFU)) &&
@@ -386,8 +316,7 @@ uint8_t  USBH_FindInterface(USBH_HandleTypeDef *phost, uint8_t Class, uint8_t Su
   * @retval interface index in the configuration structure
   * @note : (1)interface index 0xFF means interface index not found
   */
-uint8_t  USBH_FindInterfaceIndex(USBH_HandleTypeDef *phost, uint8_t interface_number, uint8_t alt_settings)
-{
+uint8_t  USBH_FindInterfaceIndex(USBH_HandleTypeDef *phost, uint8_t interface_number, uint8_t alt_settings){
   USBH_InterfaceDescTypeDef *pif;
   USBH_CfgDescTypeDef *pcfg;
   uint8_t if_ix = 0U;
@@ -395,11 +324,9 @@ uint8_t  USBH_FindInterfaceIndex(USBH_HandleTypeDef *phost, uint8_t interface_nu
   pif = (USBH_InterfaceDescTypeDef *)NULL;
   pcfg = &phost->device.CfgDesc;
 
-  while (if_ix < USBH_MAX_NUM_INTERFACES)
-  {
+  while (if_ix < USBH_MAX_NUM_INTERFACES){
     pif = &pcfg->Itf_Desc[if_ix];
-    if ((pif->bInterfaceNumber == interface_number) && (pif->bAlternateSetting == alt_settings))
-    {
+    if ((pif->bInterfaceNumber == interface_number) && (pif->bAlternateSetting == alt_settings)){
       return  if_ix;
     }
     if_ix++;
@@ -414,8 +341,7 @@ uint8_t  USBH_FindInterfaceIndex(USBH_HandleTypeDef *phost, uint8_t interface_nu
   * @param  phost: Host Handle
   * @retval USBH Status
   */
-USBH_StatusTypeDef  USBH_Start(USBH_HandleTypeDef *phost)
-{
+USBH_StatusTypeDef  USBH_Start(USBH_HandleTypeDef *phost){
   /* Start the low level driver  */
   (void)USBH_LL_Start(phost);
 
@@ -432,8 +358,7 @@ USBH_StatusTypeDef  USBH_Start(USBH_HandleTypeDef *phost)
   * @param  phost: Host Handle
   * @retval USBH Status
   */
-USBH_StatusTypeDef  USBH_Stop(USBH_HandleTypeDef *phost)
-{
+USBH_StatusTypeDef  USBH_Stop(USBH_HandleTypeDef *phost){
   /* DeActivate VBUS on the port */
   (void)USBH_LL_DriverVBUS(phost, FALSE);
 
@@ -454,8 +379,7 @@ USBH_StatusTypeDef  USBH_Stop(USBH_HandleTypeDef *phost)
   * @param  phost: Host Handle
   * @retval USBH Status
   */
-USBH_StatusTypeDef USBH_ReEnumerate(USBH_HandleTypeDef *phost)
-{
+USBH_StatusTypeDef USBH_ReEnumerate(USBH_HandleTypeDef *phost){
   if (USBH_IsPortEnabled(phost) != 0U)
   {
     phost->device.is_ReEnumerated = 1U;
@@ -487,8 +411,7 @@ static void USBH_ProcessDelay(
   * @param  phost: Host Handle
   * @retval USBH Status
   */
-USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
-{
+USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost){
   USBH_StatusTypeDef status = USBH_FAIL;
   uint8_t idx = 0U;
 
@@ -506,19 +429,19 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 		if (phost->device.is_connected) {
 			USBH_UsrLog("USBH_Process: phost->device.is_connected");
 			/* Wait for 200 ms after connection */
-			USBH_ProcessDelay(phost, HOST_DEV_BUS_RESET_ON, 500);
+			USBH_ProcessDelay(phost, HOST_DEV_BUS_RESET_OFF, 500);
 		}
 		break;
 
-	case HOST_DEV_BUS_RESET_ON:
-		USBH_UsrLog("USBH_Process: HOST_DEV_BUS_RESET_ON");
-		USBH_LL_ResetPort2(phost, 1);
-		USBH_ProcessDelay(phost, HOST_DEV_BUS_RESET_OFF, 50);
-		break;
+//	case HOST_DEV_BUS_RESET_ON:
+//		USBH_UsrLog("USBH_Process: HOST_DEV_BUS_RESET_ON");
+//		USBH_LL_ResetPort(phost);
+//		USBH_ProcessDelay(phost, HOST_DEV_BUS_RESET_OFF, 50);
+//		break;
 
 	case HOST_DEV_BUS_RESET_OFF:
-		USBH_UsrLog("USBH_Process: HOST_DEV_BUS_RESET_OFF");
-		USBH_LL_ResetPort2(phost, 0);
+		USBH_UsrLog("USBH_Process: HOST_DEV_BUS_RESET");
+		USBH_LL_ResetPort(phost);
 
         /* Make sure to start with Default address */
 		phost->currentTarget->dev_address = USBH_ADDRESS_DEFAULT;
@@ -585,9 +508,10 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 	  (void)USBH_OpenPipe(phost, phost->Control.pipe_in, 0x80U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 	  (void)USBH_OpenPipe(phost, phost->Control.pipe_out, 0x00U, phost->currentTarget, USBH_EP_CONTROL, (uint16_t)phost->Control.pipe_size);
 
-	  if(phost->hubInstances == 0){
+	  if(phost->hubInstances == 0){ // enumerate root device
 		  phost->gState = HOST_ENUMERATION;
 	  } else {
+		  pCurrentHubHandle->portNeedToEnumerate = 0; //if root device is HUB check port isConnected.
 		  phost->gState = HUB_PORT_INIT;
 	  }
       break;
@@ -595,13 +519,15 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
    case HUB_PORT_INIT:
 	  status = checkHubPort(phost);
 	  if(status == USBH_OK){
-		  phost->gState = HUB_OPEN_PIPES; // Open HUB device pipes
-	  }else if (status == USBH_HUB_PORTS_ARE_INITIALIZED){
-		  phost->gState = HOST_CLASS;
+		 if(pCurrentHubHandle->portNeedToEnumerate != 0){
+			 phost->gState = HUB_OPEN_PIPES; // Open HUB device pipes
+		 }else if (pCurrentHubHandle->initState == USBH_HUB_PORTS_ARE_INITIALIZED){
+			  phost->gState = HOST_CLASS_REQUEST;
+		 }
 	  }
 	  break;
 
-   case HUB_OPEN_PIPES: // open hub device pipes
+   case HUB_OPEN_PIPES: // open hub device control pipes
 	   /* Getting free pipes */
 	   phost->Control.pipe_out = USBH_AllocPipe(phost, 0x00U);
 	   phost->Control.pipe_in  = USBH_AllocPipe(phost, 0x80U);
@@ -618,8 +544,6 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
       if (status == USBH_OK){
         /* The function shall return USBH_OK when full enumeration is complete */
         USBH_UsrLog("Enumeration done for VID/PID: %04X/%04X.", phost->device.DevDesc.idVendor, phost->device.DevDesc.idProduct);
-
-
 //        if(phost->hubInstances != 0){
 //			HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
 //			if(HUB_Handle->hubClassRequestPort < HUB_Handle->NumPorts){
@@ -688,11 +612,9 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
       break;
 
     case HOST_CHECK_CLASS:
-
         //USBH_UsrLog("HOST_CHECK_CLASS: Incoming class: %02X.", (unsigned) phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass);
       	//printhex(0x00, & phost->device.CfgDesc.Itf_Desc[0], sizeof phost->device.CfgDesc.Itf_Desc[0]);
       	//printhex(0x00, & phost->device.CfgDesc_Raw, sizeof phost->device.CfgDesc_Raw);
-
       if (phost->ClassNumber == 0U){
         USBH_UsrLog("No Class has been registered.");
         phost->gState = HOST_ABORT_STATE;
@@ -702,12 +624,8 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 
         for (idx = 0U; idx < phost->ClassNumber; idx++){
         	/* выключаем из рассмотрения HUB CLASS, если он уже один раз сработал */
-          if (phost->hubInstances != 1 && phost->pClass[idx] == &HUB_Class){
-        	  continue;
-          }
-//
-//          if (USB_HUB_CLASS == phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass){
-//        	  phost->pHubClass = phost->pClass[idx];
+//          if (phost->hubInstances != 1 && phost->pClass[idx] == &HUB_Class){
+//        	  continue;
 //          }
 
           if (phost->pClass[idx]->ClassCode == phost->device.CfgDesc.Itf_Desc[0].bInterfaceClass){
@@ -737,41 +655,51 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
 
     case HOST_CLASS_REQUEST:
 
-	if(phost->currentTarget != &phost->rootTarget){
-		HUB_HandleTypeDef* const HUB_Handle = phost->hubDatas[0];
-		if(HUB_Handle->hubClassRequestPort < HUB_Handle->NumPorts){
+	if(pCurrentHubHandle->initState == HUB_INIT_IN_PROGRESS && phost->pActiveClass->ClassCode != USB_HUB_CLASS){
+//		if(pCurrentHubHandle->hubClassRequestPort < pCurrentHubHandle->NumPorts){
 // close current control pipes
 			(void)USBH_FreePipe(phost, phost->Control.pipe_out);
 			(void)USBH_FreePipe(phost, phost->Control.pipe_in);
 // select root hub target
-			phost->currentTarget = &phost->rootTarget;
-			HUB_Handle->ctl_state = HUB_REQ_RESETS;
+			phost->currentTarget = &pCurrentHubHandle->target;
+			pCurrentHubHandle->ctl_state = HUB_REQ_RESETS;
 			phost->Control.state = CTRL_SETUP;
 			phost->EnumState = ENUM_IDLE;
 			USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
 
-			phost->devices[HUB_Handle->detectedPorts-1] = phost->device;
+			pCurrentHubHandle->devices[pCurrentHubHandle->detectedPorts-1] = &phost->device;
+			break;
+		}else if(pCurrentHubHandle->initState == USBH_HUB_PORTS_ARE_INITIALIZED){
+			USBH_UsrLog("USB HUB#%d pots scan is DONE!", pCurrentHubHandle->target.dev_address);
+			pCurrentHubHandle->initState = HUB_REQ_DONE;
 
-		}else{
-			USBH_UsrLog("USB HUB pots scan is DONE!");
-			phost->gState = HOST_CLASS;
+			if(pCurrentHubHandle->parentHub != NULL){
+				pCurrentHubHandle = pCurrentHubHandle->parentHub;
+
+				phost->currentTarget = &pCurrentHubHandle->target;
+				pCurrentHubHandle->ctl_state = HUB_REQ_RESETS;
+				phost->Control.state = CTRL_SETUP;
+				phost->EnumState = ENUM_IDLE;
+				USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
+			}else{
+				pCurrentHubHandle = 0;
+				phost->gState = HOST_CLASS;
+			}
+			break;
 		}
-		break;
-	}
 
+//	}
 
       /* process class standard control requests state machine */
       if (phost->pActiveClass != NULL) {
         status = phost->pActiveClass->Requests(phost);
-
         if (status == USBH_OK){
           phost->gState = HOST_CLASS;
         }else if (status == USBH_HUB_REQ_REENUMERATE){
 			phost->EnumState = ENUM_IDLE;
 			USBH_ProcessDelay(phost, HOST_DEV_ATTACHED, 5);
 			status = USBH_OK;
-
-            USBH_UsrLog("Device %s class require re-enumeration.", phost->pActiveClass->Name);
+            USBH_UsrLog("Device#%d %s class require re-enumeration.", phost->currentTarget->dev_address, phost->pActiveClass->Name);
         }else if (status == USBH_FAIL){
         	phost->gState = HOST_ABORT_STATE;
         	USBH_ErrLog("Device not responding Please Unplug.");
@@ -855,13 +783,11 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost)
   * @param  phost: Host Handle
   * @retval USBH_Status
   */
-static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
-{
+static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost){
   USBH_StatusTypeDef Status = USBH_BUSY;
   USBH_StatusTypeDef ReqStatus = USBH_BUSY;
 
-  switch (phost->EnumState)
-  {
+  switch (phost->EnumState){
     case ENUM_IDLE:
       /* Get Device Desc for only 1st 8 bytes : To get EP0 MaxPacketSize */
       ReqStatus = USBH_Get_DevDesc(phost, 8U);
@@ -897,7 +823,7 @@ static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
       /* Get FULL Device Desc  */
       ReqStatus = USBH_Get_DevDesc(phost, USB_DEVICE_DESC_SIZE);
       if (ReqStatus == USBH_OK) {
-          USBH_UsrLog("VID/PID: %04X/%04X", (unsigned) phost->device.DevDesc.idVendor, (unsigned) phost->device.DevDesc.idProduct);
+          USBH_UsrLog("Device VID/PID: %04X/%04X has detected", (unsigned) phost->device.DevDesc.idVendor, (unsigned) phost->device.DevDesc.idProduct);
 
         phost->EnumState = ENUM_SET_ADDR;
       } else if (ReqStatus == USBH_NOT_SUPPORTED) {
@@ -1014,48 +940,17 @@ static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
           /* User callback for Manufacturing string */
           USBH_UsrLog("Manufacturer : %s", (char *)(void *)phost->device.Data);
           phost->EnumState = ENUM_GET_PRODUCT_STRING_DESC;
-
-#if (USBH_USE_OS == 1U)
-          phost->os_msg = (uint32_t)USBH_STATE_CHANGED_EVENT;
-#if (osCMSIS < 0x20000U)
-          (void)osMessagePut(phost->os_event, phost->os_msg, 0U);
-#else
-          (void)osMessageQueuePut(phost->os_event, &phost->os_msg, 0U, 0U);
-#endif
-#endif
         }
-        else if (ReqStatus == USBH_NOT_SUPPORTED)
-        {
+        else if (ReqStatus == USBH_NOT_SUPPORTED){
           USBH_UsrLog("Manufacturer : N/A");
           phost->EnumState = ENUM_GET_PRODUCT_STRING_DESC;
-
-#if (USBH_USE_OS == 1U)
-          phost->os_msg = (uint32_t)USBH_STATE_CHANGED_EVENT;
-#if (osCMSIS < 0x20000U)
-          (void)osMessagePut(phost->os_event, phost->os_msg, 0U);
-#else
-          (void)osMessageQueuePut(phost->os_event, &phost->os_msg, 0U, 0U);
-#endif
-#endif
-        }
-        else
-        {
+        } else {
           /* .. */
         }
-      }
-      else
-      {
+      } else{
         USBH_UsrLog("Manufacturer : N/A");
         phost->EnumState = ENUM_GET_PRODUCT_STRING_DESC;
 
-#if (USBH_USE_OS == 1U)
-        phost->os_msg = (uint32_t)USBH_STATE_CHANGED_EVENT;
-#if (osCMSIS < 0x20000U)
-        (void)osMessagePut(phost->os_event, phost->os_msg, 0U);
-#else
-        (void)osMessageQueuePut(phost->os_event, &phost->os_msg, 0U, 0U);
-#endif
-#endif
       }
       break;
 
@@ -1071,30 +966,12 @@ static USBH_StatusTypeDef USBH_HandleEnum(USBH_HandleTypeDef *phost)
         } else if (ReqStatus == USBH_NOT_SUPPORTED) {
           USBH_UsrLog("Product : N/A");
           phost->EnumState = ENUM_GET_SERIALNUM_STRING_DESC;
-
-#if (USBH_USE_OS == 1U)
-          phost->os_msg = (uint32_t)USBH_STATE_CHANGED_EVENT;
-#if (osCMSIS < 0x20000U)
-          (void)osMessagePut(phost->os_event, phost->os_msg, 0U);
-#else
-          (void)osMessageQueuePut(phost->os_event, &phost->os_msg, 0U, 0U);
-#endif
-#endif
         } else {
           /* .. */
         }
       } else {
         USBH_UsrLog("Product : N/A");
         phost->EnumState = ENUM_GET_SERIALNUM_STRING_DESC;
-
-#if (USBH_USE_OS == 1U)
-        phost->os_msg = (uint32_t)USBH_STATE_CHANGED_EVENT;
-#if (osCMSIS < 0x20000U)
-        (void)osMessagePut(phost->os_event, phost->os_msg, 0U);
-#else
-        (void)osMessageQueuePut(phost->os_event, &phost->os_msg, 0U, 0U);
-#endif
-#endif
       }
       break;
 
