@@ -67,6 +67,8 @@
 
 /*============== Qualitet =================*/
 #define CHILD_HUBS							2
+/*=========================================*/
+
 
 typedef struct __attribute__ ((packed)) _USB_HUB_DESCRIPTOR{
 	uint8_t  bLength;               // Length of this descriptor.

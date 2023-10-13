@@ -43,7 +43,8 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define USBHS_MAX_BULK_PACKET_SIZE	512
+#define USBHS_MAX_BULK_HS_PACKET_SIZE	512
+#define USBHS_MAX_BULK_FS_PACKET_SIZE	64
 #define BTN_DELAY	500000
 /* USER CODE END PM */
 
@@ -62,7 +63,7 @@ int btnCounter = 0;
 const char* cdc_tx_buf = "I would like to share my experience to create test application and measure the USB performance for both FS and HS with external ULPI PHY (USB3300) on STM32F4 MCU series. To do that Olimex STM32-H405 board and USB3300 module was used as hardware. Because of high speed the connection between them was made with very short wires and using default pin connection case with USB3300 reset pin connected to PA6. In addition to use default USB FS Device pin-out USB_P was re-wired from PC4 to PA9. For debugging USART\r\n";
 uint32_t TX_SIZE = 62;//sizeof(cdc_tx_buf);
 
-uint8_t cdc_rx_buf[USBHS_MAX_BULK_PACKET_SIZE];
+uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
 
 PUTCHAR_PROTOTYPE{
   HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
@@ -95,8 +96,7 @@ void MX_USB_HOST_Process(void);
   * @brief  The application entry point.
   * @retval int
   */
-int main(void)
-{
+int main(void){
   /* USER CODE BEGIN 1 */
 extern ApplicationTypeDef Appli_state;
   /* USER CODE END 1 */
@@ -146,7 +146,6 @@ extern ApplicationTypeDef Appli_state;
 
   USBH_StatusTypeDef status = 0;
   while (1){
-//	HAL_TIM_Base_Start(&htim4);
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
@@ -181,11 +180,13 @@ extern ApplicationTypeDef Appli_state;
     	if(btnCounter >= BTN_DELAY){
 			btnCounter = 0;
     		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
-//    		__HAL_TIM_SET_COUNTER(&htim4, 0);
-//    		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, 1);
-//    		printf("USB packet has sent with status %d.\n\r", status);
-//    		memset(cdc_rx_buf, 0, USBHS_MAX_BULK_PACKET_SIZE);
-//    		if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
+    		__HAL_TIM_SET_COUNTER(&htim4, 0);
+
+
+    		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, 1);
+    		printf("USB packet has sent with status %d.\n\r", status);
+    		memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
+    		if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
     	}
 //    }else{
 //    	HAL_GPIO_WritePin(ULPI_RES_GPIO_Port, ULPI_RES_Pin, RESET);
