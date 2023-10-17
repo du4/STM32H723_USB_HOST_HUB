@@ -190,6 +190,8 @@ extern ApplicationTypeDef Appli_state;
     	}
 //    }else{
 //    	HAL_GPIO_WritePin(ULPI_RES_GPIO_Port, ULPI_RES_Pin, RESET);
+    }else{
+    	btnCounter = 0;
     }
 
 
@@ -461,9 +463,9 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
-//	int duration = (int)__HAL_TIM_GET_COUNTER(&htim4);
-//	int size = sizeof(cdc_rx_buf);
-//	printf("Got USB packet, duration=%d us; size=%d; %s\n\r", duration, size, cdc_rx_buf);
+	int duration = (int)__HAL_TIM_GET_COUNTER(&htim4);
+	int size = sizeof(cdc_rx_buf);
+	printf("Got USB packet, duration=%d us; size=%d; %s\n\r", duration, size, cdc_rx_buf);
 //	if(size == USBHS_MAX_BULK_PACKET_SIZE)
 
 	CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;

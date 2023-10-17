@@ -580,8 +580,7 @@ USBH_StatusTypeDef  USBH_CDC_Transmit(USBH_HandleTypeDef *phost, uint8_t *pbuff,
   USBH_StatusTypeDef Status = USBH_BUSY;
   CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) phost->pActiveClass->pData;
 
-  if ((CDC_Handle->state == CDC_IDLE_STATE) || (CDC_Handle->state == CDC_TRANSFER_DATA))
-  {
+  if ((CDC_Handle->state == CDC_IDLE_STATE) || (CDC_Handle->state == CDC_TRANSFER_DATA)){
     CDC_Handle->pTxData = pbuff;
     CDC_Handle->TxDataLength = length;
     CDC_Handle->state = CDC_TRANSFER_DATA;
