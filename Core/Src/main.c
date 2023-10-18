@@ -46,6 +46,8 @@
 #define USBHS_MAX_BULK_HS_PACKET_SIZE	512
 #define USBHS_MAX_BULK_FS_PACKET_SIZE	64
 #define BTN_DELAY	500000
+
+#define DEVICE_COUNT	2
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -62,7 +64,6 @@ int bytesReceiveCounter = 0;
 int btnCounter = 0;
 const char* cdc_tx_buf = "I would like to share my experience to create test application and measure the USB performance for both FS and HS with external ULPI PHY (USB3300) on STM32F4 MCU series. To do that Olimex STM32-H405 board and USB3300 module was used as hardware. Because of high speed the connection between them was made with very short wires and using default pin connection case with USB3300 reset pin connected to PA6. In addition to use default USB FS Device pin-out USB_P was re-wired from PC4 to PA9. For debugging USART\r\n";
 uint32_t TX_SIZE = 62;//sizeof(cdc_tx_buf);
-
 uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
 
 PUTCHAR_PROTOTYPE{
@@ -70,10 +71,12 @@ PUTCHAR_PROTOTYPE{
   return ch;
 }
 
-
 CDC_StateTypedef CDC_STATE = CDC_SEND;
 
 extern USBH_HandleTypeDef hUsbHostHS;
+
+CDC_HandleTypeDef cdc_Handles [DEVICE_COUNT];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -182,9 +185,9 @@ extern ApplicationTypeDef Appli_state;
     		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
     		__HAL_TIM_SET_COUNTER(&htim4, 0);
 
-
-    		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, 1);
-    		printf("USB packet has sent with status %d.\n\r", status);
+    		int size = 1;
+    		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, size);
+//    		printf("USB packet with size %d has been transmitted status %d.\n\r", size, status);
     		memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
     		if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
     	}
@@ -473,7 +476,6 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 
 	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_SEND;
 	packetReceiveCounter++;
-
 }
 /**
   * @brief  The function informs user that data have been received

@@ -24,6 +24,7 @@
 #include "usbh_hub.h"
 
 extern USBH_ClassTypeDef  HUB_Class;
+extern USBH_ClassTypeDef  CDC_Class;
 extern HUB_HandleTypeDef* pCurrentHubHandle;
 //extern USBH_HandleTypeDef hUsbHostHS;
 
@@ -669,6 +670,14 @@ USBH_StatusTypeDef  USBH_Process(USBH_HandleTypeDef *phost){
 			}else{
 				pCurrentHubHandle = 0;
 				USBH_UsrLog("USB host enumeration is DONE!");
+				for (idx = 0U; idx < phost->ClassNumber; idx++){
+					if (phost->pClass[idx] == &CDC_Class){
+				    	phost->pActiveClass = phost->pClass[idx];
+				    	USBH_UsrLog("Set active class to %d", phost->pActiveClass->ClassCode);
+				    	break;
+				    }
+				}
+
 				phost->pUser(phost, HOST_USER_CLASS_ACTIVE);
 
 //				phost->pActiveClass = phost->pClass[1];
