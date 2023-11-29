@@ -75,6 +75,7 @@ CDC_StateTypedef CDC_STATE = CDC_SEND;
 
 extern USBH_HandleTypeDef hUsbHostHS;
 
+static int cdc_HandlesIndex = 0;
 CDC_HandleTypeDef cdc_Handles [DEVICE_COUNT];
 
 /* USER CODE END PV */
@@ -106,7 +107,6 @@ extern ApplicationTypeDef Appli_state;
 
   /* Enable I-Cache---------------------------------------------------------*/
   SCB_EnableICache();
-
   /* Enable D-Cache---------------------------------------------------------*/
   SCB_EnableDCache();
 
@@ -186,6 +186,12 @@ extern ApplicationTypeDef Appli_state;
     		__HAL_TIM_SET_COUNTER(&htim4, 0);
 
     		int size = 1;
+
+    		hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
+    		if(cdc_HandlesIndex >= DEVICE_COUNT){
+    			cdc_HandlesIndex = 0;
+    		}
+
     		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, size);
 //    		printf("USB packet with size %d has been transmitted status %d.\n\r", size, status);
     		memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
@@ -468,7 +474,8 @@ static void MX_GPIO_Init(void)
 void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 	int duration = (int)__HAL_TIM_GET_COUNTER(&htim4);
 	int size = sizeof(cdc_rx_buf);
-	printf("Got USB packet, duration=%d us; size=%d; %s\n\r", duration, size, cdc_rx_buf);
+	int address = ((CDC_HandleTypeDef*)(phost->pActiveClass->pData))->target.dev_address;
+	printf("Got USB packet, duration=%d us; size=%d; address=%d %s\n\r", duration, size, address, cdc_rx_buf);
 //	if(size == USBHS_MAX_BULK_PACKET_SIZE)
 
 	CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
