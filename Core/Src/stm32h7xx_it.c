@@ -211,7 +211,6 @@ void SysTick_Handler(void)
 void TIM3_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM3_IRQn 0 */
-	HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
 //	packetToSend[5] = 0x20;
 //	packetToSend[4] = 0x30 + packetCounter%10;
 //	packetToSend[3] = 0x30 + (packetCounter/10)%10;
@@ -219,11 +218,12 @@ void TIM3_IRQHandler(void)
 //	packetToSend[1] = 0x30 + (packetCounter/1000)%10;
 //	packetToSend[0] = 0x30 + (packetCounter/10000)%10;
 
-	if(packetSendCounter != 0)HAL_GPIO_TogglePin(RedLed_GPIO_Port, RedLed_Pin);
+//	if(packetSendCounter != 0)
+	HAL_GPIO_TogglePin(RedLed_GPIO_Port, RedLed_Pin);
 
-	if(Appli_state == APPLICATION_READY){
-		printf("HS HOST send=%d; rPc=%d rBc=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
-	}
+//	if(Appli_state == APPLICATION_READY){
+	printf("HS HOST send=%d; rPc=%d rBc=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
+//	}
 	packetReceiveCounter=0;
 	packetSendCounter=0;
 	bytesReceiveCounter=0;
