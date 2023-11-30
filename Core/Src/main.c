@@ -137,9 +137,9 @@ extern ApplicationTypeDef Appli_state;
   MX_TIM4_Init();
   MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
-//  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){
-//      Error_Handler();
-//  }
+  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){
+      Error_Handler();
+  }
 
   printf("\n\r===========================================\n\rUSB HOST become to main loop.\r\n");
 
@@ -149,7 +149,8 @@ extern ApplicationTypeDef Appli_state;
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_TIM_Base_Start(&htim4);
+  HAL_TIM_Base_Stop(&htim4);
+  HAL_TIM_Base_Stop(&htim3);
 
   USBH_StatusTypeDef status = 0;
   while (1){
@@ -182,23 +183,23 @@ extern ApplicationTypeDef Appli_state;
 //	}
 //    }
 
-    /*
-    if(sendState != 0){
-    	hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
-		if(cdc_HandlesIndex >= DEVICE_COUNT){
-			cdc_HandlesIndex = 0;
-		}
 
+    if(sendState != 0){
 		if (Appli_state == APPLICATION_READY){
 			switch (CDC_STATE){
 				case CDC_SEND:{
+					hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
+					if(cdc_HandlesIndex >= DEVICE_COUNT){
+						cdc_HandlesIndex = 0;
+					}
+
 					status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
 					CDC_STATE = CDC_BUSY;
 					break;
 				}
 				case CDC_RECEIVE:{
 					memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
-					if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, USBHS_MAX_BULK_FS_PACKET_SIZE);
+					if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, USBHS_MAX_BULK_FS_PACKET_SIZE-2);
 					CDC_STATE = CDC_BUSY;
 				}
 				default:  break;
@@ -207,7 +208,7 @@ extern ApplicationTypeDef Appli_state;
 	//    	if(packetSendCounter != 0)	printf("send=%d.\n\r", packetSendCounter);
 		}
     }
-*/
+
 
     if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
     	btnCounter++;
@@ -222,6 +223,7 @@ extern ApplicationTypeDef Appli_state;
     		HAL_TIM_Base_Start(&htim3);
     		}else{
     			HAL_TIM_Base_Stop(&htim3);
+    			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
     		}
 
 
@@ -515,10 +517,10 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
-	int duration = (int)__HAL_TIM_GET_COUNTER(&htim4);
-	int size = sizeof(cdc_rx_buf);
-	int address = ((CDC_HandleTypeDef*)(phost->pActiveClass->pData))->target.dev_address;
-	printf("Got USB packet, duration=%d us; size=%d; address=%d %s\n\r", duration, size, address, cdc_rx_buf);
+//	int duration = (int)__HAL_TIM_GET_COUNTER(&htim4);
+//	int size = sizeof(cdc_rx_buf);
+//	int address = ((CDC_HandleTypeDef*)(phost->pActiveClass->pData))->target.dev_address;
+//	printf("Got USB packet, duration=%d us; size=%d; address=%d %s\n\r", duration, size, address, cdc_rx_buf);
 //	if(size == USBHS_MAX_BULK_PACKET_SIZE)
 
 	CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
