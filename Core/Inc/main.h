@@ -42,6 +42,8 @@ extern "C" {
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
 
+
+#define I2C_ADDRESS        0x03
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

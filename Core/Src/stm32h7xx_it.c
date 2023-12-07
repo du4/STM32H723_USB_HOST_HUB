@@ -222,7 +222,7 @@ void TIM3_IRQHandler(void)
 	HAL_GPIO_TogglePin(RedLed_GPIO_Port, RedLed_Pin);
 
 //	if(Appli_state == APPLICATION_READY){
-	printf("HS HOST send=%d; rPc=%d rBc=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
+	printf("FS HOST sendPc=%d; reseivePc=%d rBytes=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
 //	}
 	packetReceiveCounter=0;
 	packetSendCounter=0;

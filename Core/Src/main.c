@@ -45,13 +45,18 @@
 /* USER CODE BEGIN PM */
 #define USBHS_MAX_BULK_HS_PACKET_SIZE	512
 #define USBHS_MAX_BULK_FS_PACKET_SIZE	64
-#define BTN_DELAY	1000000
+#define BTN_DELAY	5000000
 
 #define DEVICE_COUNT	2
 #define USB_SOP				0x23
+
+#define I2C_USE
+#define i2cBufSize 11
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+
+I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
@@ -63,12 +68,18 @@ int packetSendCounter = 0;
 int packetReceiveCounter = 0;
 int bytesReceiveCounter = 0;
 int btnCounter = 0;
-int sendState = 0;
+
+int usbSendState = 0;
+int i2cSendState = 0;
 
 
 const char* cdc_tx_buf = "I would like to share my experience to create test application and measure the USB performance for both FS and HS with external ULPI PHY (USB3300) on STM32F4 MCU series. To do that Olimex STM32-H405 board and USB3300 module was used as hardware. Because of high speed the connection between them was made with very short wires and using default pin connection case with USB3300 reset pin connected to PA6. In addition to use default USB FS Device pin-out USB_P was re-wired from PC4 to PA9. For debugging USART\r\n";
 uint32_t TX_SIZE = 62;//sizeof(cdc_tx_buf);
 uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
+
+/* Buffer used for transmission */
+uint8_t aTxBuffer[] = "****I2C****";
+uint8_t aRxBuffer[i2cBufSize];
 
 PUTCHAR_PROTOTYPE{
   HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
@@ -90,6 +101,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_I2C2_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
@@ -104,13 +116,15 @@ void MX_USB_HOST_Process(void);
   * @brief  The application entry point.
   * @retval int
   */
-int main(void){
+int main(void)
+{
   /* USER CODE BEGIN 1 */
 extern ApplicationTypeDef Appli_state;
   /* USER CODE END 1 */
 
   /* Enable I-Cache---------------------------------------------------------*/
   SCB_EnableICache();
+
   /* Enable D-Cache---------------------------------------------------------*/
   SCB_EnableDCache();
 
@@ -136,10 +150,13 @@ extern ApplicationTypeDef Appli_state;
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_USB_HOST_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){
       Error_Handler();
   }
+  HAL_TIM_Base_Stop(&htim4);
+  HAL_TIM_Base_Stop(&htim3);
 
   printf("\n\r===========================================\n\rUSB HOST become to main loop.\r\n");
 
@@ -149,13 +166,11 @@ extern ApplicationTypeDef Appli_state;
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_TIM_Base_Stop(&htim4);
-  HAL_TIM_Base_Stop(&htim3);
 
   USBH_StatusTypeDef status = 0;
   while (1){
     /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
+//    MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
 //    printf("MX_USB_HOST_Process duration = %d us\n\r", (int)__HAL_TIM_GET_COUNTER(&htim4));
@@ -184,7 +199,7 @@ extern ApplicationTypeDef Appli_state;
 //    }
 
 
-    if(sendState != 0){
+    if(usbSendState != 0){
 		if (Appli_state == APPLICATION_READY){
 			switch (CDC_STATE){
 				case CDC_SEND:{
@@ -192,7 +207,6 @@ extern ApplicationTypeDef Appli_state;
 					if(cdc_HandlesIndex >= DEVICE_COUNT){
 						cdc_HandlesIndex = 0;
 					}
-
 					status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
 					CDC_STATE = CDC_BUSY;
 					break;
@@ -204,8 +218,6 @@ extern ApplicationTypeDef Appli_state;
 				}
 				default:  break;
 				}
-	//    	if(status == USBH_OK) status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
-	//    	if(packetSendCounter != 0)	printf("send=%d.\n\r", packetSendCounter);
 		}
     }
 
@@ -216,15 +228,59 @@ extern ApplicationTypeDef Appli_state;
 			btnCounter = 0;
     		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
 
-    		sendState ^= 1;
+#ifdef I2C_USE
 
-    		if(sendState != 0){
+//			HAL_StatusTypeDef i2cDevIsReadyStatus = HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)I2C_ADDRESS, 1, 3000);
+//			printf("HAL_I2C_IsDeviceReady=%d\r\n",i2cDevIsReadyStatus);
+		 /*##-2- Start the transmission process #####################################*/
+		  /* While the I2C in reception process, user can transmit data through
+			 "aTxBuffer" buffer */
+		  /* Timeout is set to 3S */
+			  printf("HAL_I2C_Master_Transmit.\r\n");
+			  i2cSendState = 1;
+			  while(HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t*)aTxBuffer, i2cBufSize, 8000)!= HAL_OK){
+		/* Error_Handler() function is called when Timeout error occurs.
+		   When Acknowledge failure occurs (Slave don't acknowledge its address)
+		   Master restarts communication */
+				if (HAL_I2C_GetError(&hi2c2) != HAL_I2C_ERROR_AF){
+				  printf("I2C Transfer error %d.\r\n", (int)HAL_I2C_GetError(&hi2c2));
+				  i2cSendState = 0;
+				  break;
+		//		  Error_Handler();
+				}
+			  }
+
+		/*##-3- Put I2C peripheral in reception process ############################*/
+		 /* Timeout is set to 3S */
+			  if(i2cSendState != 0){
+				 i2cSendState = 2;
+				 printf("HAL_I2C_Master_Receive.\r\n");
+				 while(HAL_I2C_Master_Receive(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t *)aRxBuffer, i2cBufSize, 8000) != HAL_OK){
+				   /* Error_Handler() function is called when Timeout error occurs.
+					  When Acknowledge failure occurs (Slave don't acknowledge it's address)
+					  Master restarts communication */
+				   if (HAL_I2C_GetError(&hi2c2) != HAL_I2C_ERROR_AF) {
+					 printf("I2C Reception error %d.\r\n", (int)HAL_I2C_GetError(&hi2c2));
+					 i2cSendState = 0;
+			//		 Error_Handler();
+				   }
+				 }
+				 if(i2cSendState == 2){
+					 printf("Transfer in reception process is correct.\r\n");
+				 }
+			  }
+#endif
+
+#ifdef USB_USE
+    		usbSendState ^= 1;
+    		if(usbSendState != 0){
     		__HAL_TIM_SET_COUNTER(&htim3, 0);
     		HAL_TIM_Base_Start(&htim3);
     		}else{
     			HAL_TIM_Base_Stop(&htim3);
     			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
     		}
+#endif
 
 
 
@@ -313,6 +369,54 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.Timing = 0x60404E72;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
+
 }
 
 /**
@@ -466,6 +570,7 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
@@ -522,10 +627,8 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 //	int address = ((CDC_HandleTypeDef*)(phost->pActiveClass->pData))->target.dev_address;
 //	printf("Got USB packet, duration=%d us; size=%d; address=%d %s\n\r", duration, size, address, cdc_rx_buf);
 //	if(size == USBHS_MAX_BULK_PACKET_SIZE)
-
 	CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
 	bytesReceiveCounter += CDC_Handle->RxDataLength;
-
 	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_SEND;
 	packetReceiveCounter++;
 }
@@ -534,8 +637,7 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
   *  @param  pdev: Selected device
   * @retval None
   */
-void USBH_CDC_TransmitCallback(USBH_HandleTypeDef *phost)
-{
+void USBH_CDC_TransmitCallback(USBH_HandleTypeDef *phost){
   /* Prevent unused argument(s) compilation warning */
 	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_RECEIVE;
 	packetSendCounter++;
