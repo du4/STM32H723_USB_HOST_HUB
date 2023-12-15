@@ -46,7 +46,7 @@
 /* USER CODE BEGIN PM */
 #define USBHS_MAX_BULK_HS_PACKET_SIZE	512
 #define USBHS_MAX_BULK_FS_PACKET_SIZE	64
-#define BTN_DELAY	15000000
+#define BTN_DELAY	5000000
 
 #define DEVICE_COUNT	2
 #define USB_SOP				0x23
@@ -90,6 +90,7 @@ PUTCHAR_PROTOTYPE{
 
 CDC_StateTypedef CDC_STATE = CDC_SEND;
 
+extern struct netif gnetif;
 extern USBH_HandleTypeDef hUsbHostHS;
 
 static int cdc_HandlesIndex = 0;
@@ -160,7 +161,6 @@ extern ApplicationTypeDef Appli_state;
   MX_I2C2_Init();
   MX_LWIP_Init();
   /* USER CODE BEGIN 2 */
-  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK) Error_Handler();
   HAL_TIM_Base_Stop(&htim4);
   HAL_TIM_Base_Stop(&htim3);
 
@@ -179,6 +179,8 @@ extern ApplicationTypeDef Appli_state;
     MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
+	ethernetif_input(&gnetif);
+	sys_check_timeouts();
 //    printf("MX_USB_HOST_Process duration = %d us\n\r", (int)__HAL_TIM_GET_COUNTER(&htim4));
 //    HAL_TIM_Base_Stop(&htim4);
 //    __HAL_TIM_SET_COUNTER(&htim4, 0);
@@ -268,7 +270,7 @@ extern ApplicationTypeDef Appli_state;
     		__HAL_TIM_SET_COUNTER(&htim3, 0);
     		HAL_TIM_Base_Start(&htim3);
     		}else{
-    			HAL_TIM_Base_Stop(&htim3);
+    			HAL_TIM_Base_Start_IT(&htim3);
     			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
     		}
 #endif
@@ -683,7 +685,7 @@ void MPU_Config(void)
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
-  HAL_MPU_Enable(MPU_HFNMI_PRIVDEF_NONE);
+  HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 
 }
 
