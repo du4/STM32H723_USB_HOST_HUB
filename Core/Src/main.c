@@ -52,6 +52,7 @@
 #define USB_SOP				0x23
 
 #define I2C_USE
+#define USB_USE
 #define i2cBufSize 11
 /* USER CODE END PM */
 
@@ -159,9 +160,9 @@ extern ApplicationTypeDef Appli_state;
   MX_I2C2_Init();
   MX_LWIP_Init();
   /* USER CODE BEGIN 2 */
-//  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK) Error_Handler();
-//  HAL_TIM_Base_Stop(&htim4);
-//  HAL_TIM_Base_Stop(&htim3);
+  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK) Error_Handler();
+  HAL_TIM_Base_Stop(&htim4);
+  HAL_TIM_Base_Stop(&htim3);
 
   printf("\n\r===========================================\n\rUSB HOST become to main loop.\r\n");
 
