@@ -51,6 +51,7 @@
 #define USB_SOP				0x23
 
 #define I2C_USE
+#define USB_USE
 #define i2cBufSize 11
 /* USER CODE END PM */
 
@@ -147,14 +148,14 @@ extern ApplicationTypeDef Appli_state;
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
-//  MX_TIM3_Init();
-//  MX_TIM4_Init();
-//  MX_USB_HOST_Init();
+  MX_TIM3_Init();
+  MX_TIM4_Init();
+  MX_USB_HOST_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-//  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK) Error_Handler();
-//  HAL_TIM_Base_Stop(&htim4);
-//  HAL_TIM_Base_Stop(&htim3);
+  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK) Error_Handler();
+  HAL_TIM_Base_Stop(&htim4);
+  HAL_TIM_Base_Stop(&htim3);
 
   printf("\n\r===========================================\n\rUSB HOST become to main loop.\r\n");
 
@@ -168,7 +169,7 @@ extern ApplicationTypeDef Appli_state;
   USBH_StatusTypeDef status = 0;
   while (1){
     /* USER CODE END WHILE */
-//    MX_USB_HOST_Process();
+    MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
 //    printf("MX_USB_HOST_Process duration = %d us\n\r", (int)__HAL_TIM_GET_COUNTER(&htim4));
