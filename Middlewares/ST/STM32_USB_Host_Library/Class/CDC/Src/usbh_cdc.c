@@ -141,7 +141,8 @@ USBH_ClassTypeDef  CDC_Class =
 /** @defgroup USBH_CDC_CORE_Private_Functions
   * @{
   */
-
+static int cdcHandlesSize = 0;
+extern CDC_HandleTypeDef cdc_Handles[];
 /**
   * @brief  USBH_CDC_InterfaceInit
   *         The function init the CDC class.
@@ -258,6 +259,9 @@ static USBH_StatusTypeDef USBH_CDC_InterfaceInit(USBH_HandleTypeDef *phost, cons
   (void)USBH_LL_SetToggle(phost, CDC_Handle->DataItf.OutPipe, 0U);
   (void)USBH_LL_SetToggle(phost, CDC_Handle->DataItf.InPipe, 0U);
 
+  cdc_Handles[cdcHandlesSize] = *CDC_Handle;
+  cdcHandlesSize++;
+
   return USBH_OK;
 }
 
@@ -319,7 +323,8 @@ static USBH_StatusTypeDef USBH_CDC_ClassRequest(USBH_HandleTypeDef *phost)
   status = GetLineCoding(phost, &CDC_Handle->LineCoding);
   if (status == USBH_OK)
   {
-    phost->pUser(phost, HOST_USER_CLASS_ACTIVE);
+//    phost->pUser(phost, HOST_USER_CLASS_ACTIVE);
+	  ;
   }
   else if (status == USBH_NOT_SUPPORTED)
   {
@@ -579,8 +584,7 @@ USBH_StatusTypeDef  USBH_CDC_Transmit(USBH_HandleTypeDef *phost, uint8_t *pbuff,
   USBH_StatusTypeDef Status = USBH_BUSY;
   CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) phost->pActiveClass->pData;
 
-  if ((CDC_Handle->state == CDC_IDLE_STATE) || (CDC_Handle->state == CDC_TRANSFER_DATA))
-  {
+  if ((CDC_Handle->state == CDC_IDLE_STATE) || (CDC_Handle->state == CDC_TRANSFER_DATA)){
     CDC_Handle->pTxData = pbuff;
     CDC_Handle->TxDataLength = length;
     CDC_Handle->state = CDC_TRANSFER_DATA;

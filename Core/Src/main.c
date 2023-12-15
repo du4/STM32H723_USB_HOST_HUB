@@ -43,8 +43,12 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define USBHS_MAX_BULK_PACKET_SIZE	512
-#define BTN_DELAY	500000
+#define USBHS_MAX_BULK_HS_PACKET_SIZE	512
+#define USBHS_MAX_BULK_FS_PACKET_SIZE	64
+#define BTN_DELAY	1000000
+
+#define DEVICE_COUNT	2
+#define USB_SOP				0x23
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -59,20 +63,25 @@ int packetSendCounter = 0;
 int packetReceiveCounter = 0;
 int bytesReceiveCounter = 0;
 int btnCounter = 0;
+int sendState = 0;
+
+
 const char* cdc_tx_buf = "I would like to share my experience to create test application and measure the USB performance for both FS and HS with external ULPI PHY (USB3300) on STM32F4 MCU series. To do that Olimex STM32-H405 board and USB3300 module was used as hardware. Because of high speed the connection between them was made with very short wires and using default pin connection case with USB3300 reset pin connected to PA6. In addition to use default USB FS Device pin-out USB_P was re-wired from PC4 to PA9. For debugging USART\r\n";
 uint32_t TX_SIZE = 62;//sizeof(cdc_tx_buf);
-
-uint8_t cdc_rx_buf[USBHS_MAX_BULK_PACKET_SIZE];
+uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
 
 PUTCHAR_PROTOTYPE{
   HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
   return ch;
 }
 
-
 CDC_StateTypedef CDC_STATE = CDC_SEND;
 
 extern USBH_HandleTypeDef hUsbHostHS;
+
+static int cdc_HandlesIndex = 0;
+CDC_HandleTypeDef cdc_Handles [DEVICE_COUNT];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -95,15 +104,13 @@ void MX_USB_HOST_Process(void);
   * @brief  The application entry point.
   * @retval int
   */
-int main(void)
-{
+int main(void){
   /* USER CODE BEGIN 1 */
 extern ApplicationTypeDef Appli_state;
   /* USER CODE END 1 */
 
   /* Enable I-Cache---------------------------------------------------------*/
   SCB_EnableICache();
-
   /* Enable D-Cache---------------------------------------------------------*/
   SCB_EnableDCache();
 
@@ -130,9 +137,9 @@ extern ApplicationTypeDef Appli_state;
   MX_TIM4_Init();
   MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
-//  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){
-//      Error_Handler();
-//  }
+  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){
+      Error_Handler();
+  }
 
   printf("\n\r===========================================\n\rUSB HOST become to main loop.\r\n");
 
@@ -142,11 +149,11 @@ extern ApplicationTypeDef Appli_state;
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_TIM_Base_Start(&htim4);
+  HAL_TIM_Base_Stop(&htim4);
+  HAL_TIM_Base_Stop(&htim3);
 
   USBH_StatusTypeDef status = 0;
   while (1){
-//	HAL_TIM_Base_Start(&htim4);
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
@@ -176,19 +183,69 @@ extern ApplicationTypeDef Appli_state;
 //	}
 //    }
 
+
+    if(sendState != 0){
+		if (Appli_state == APPLICATION_READY){
+			switch (CDC_STATE){
+				case CDC_SEND:{
+					hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
+					if(cdc_HandlesIndex >= DEVICE_COUNT){
+						cdc_HandlesIndex = 0;
+					}
+
+					status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
+					CDC_STATE = CDC_BUSY;
+					break;
+				}
+				case CDC_RECEIVE:{
+					memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
+					if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, USBHS_MAX_BULK_FS_PACKET_SIZE-2);
+					CDC_STATE = CDC_BUSY;
+				}
+				default:  break;
+				}
+	//    	if(status == USBH_OK) status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
+	//    	if(packetSendCounter != 0)	printf("send=%d.\n\r", packetSendCounter);
+		}
+    }
+
+
     if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
     	btnCounter++;
     	if(btnCounter >= BTN_DELAY){
 			btnCounter = 0;
     		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
+
+    		sendState ^= 1;
+
+    		if(sendState != 0){
+    		__HAL_TIM_SET_COUNTER(&htim3, 0);
+    		HAL_TIM_Base_Start(&htim3);
+    		}else{
+    			HAL_TIM_Base_Stop(&htim3);
+    			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
+    		}
+
+
+
 //    		__HAL_TIM_SET_COUNTER(&htim4, 0);
-//    		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, 1);
-//    		printf("USB packet has sent with status %d.\n\r", status);
-//    		memset(cdc_rx_buf, 0, USBHS_MAX_BULK_PACKET_SIZE);
+//
+//    		int size = 1;
+//
+//    		hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
+//    		if(cdc_HandlesIndex >= DEVICE_COUNT){
+//    			cdc_HandlesIndex = 0;
+//    		}
+//
+//    		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, size);
+////    		printf("USB packet with size %d has been transmitted status %d.\n\r", size, status);
+//    		memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
 //    		if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
     	}
 //    }else{
 //    	HAL_GPIO_WritePin(ULPI_RES_GPIO_Port, ULPI_RES_Pin, RESET);
+    }else{
+    	btnCounter = 0;
     }
 
 
@@ -462,7 +519,8 @@ static void MX_GPIO_Init(void)
 void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 //	int duration = (int)__HAL_TIM_GET_COUNTER(&htim4);
 //	int size = sizeof(cdc_rx_buf);
-//	printf("Got USB packet, duration=%d us; size=%d; %s\n\r", duration, size, cdc_rx_buf);
+//	int address = ((CDC_HandleTypeDef*)(phost->pActiveClass->pData))->target.dev_address;
+//	printf("Got USB packet, duration=%d us; size=%d; address=%d %s\n\r", duration, size, address, cdc_rx_buf);
 //	if(size == USBHS_MAX_BULK_PACKET_SIZE)
 
 	CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
@@ -470,7 +528,6 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 
 	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_SEND;
 	packetReceiveCounter++;
-
 }
 /**
   * @brief  The function informs user that data have been received

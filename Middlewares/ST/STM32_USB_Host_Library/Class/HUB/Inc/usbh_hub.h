@@ -65,8 +65,12 @@
 #define HUB_FEAT_SEL_PORT_INDICATOR          0x16
 
 
-typedef struct __attribute__ ((packed)) _USB_HUB_DESCRIPTOR
-{
+/*============== Qualitet =================*/
+#define CHILD_HUBS							2
+/*=========================================*/
+
+
+typedef struct __attribute__ ((packed)) _USB_HUB_DESCRIPTOR{
 	uint8_t  bLength;               // Length of this descriptor.
 	uint8_t  bDescriptorType;       // Descriptor Type, value: 29H for hub descriptor
 	uint8_t  bNbrPorts;             // Number of downstream facing ports that this hub supports
@@ -80,12 +84,9 @@ typedef struct __attribute__ ((packed)) _USB_HUB_DESCRIPTOR
 
 } USB_HUB_DESCRIPTOR;
 
-typedef struct __attribute__ ((packed)) _USB_HUB_PORT_STATUS
-{
-    union
-    {
-        struct
-        {
+typedef struct __attribute__ ((packed)) _USB_HUB_PORT_STATUS{
+    union{
+        struct {
         	uint8_t     PORT_CONNECTION      : 1;
         	uint8_t     PORT_ENABLE          : 1;
         	uint8_t     PORT_SUSPEND         : 1;
@@ -104,10 +105,8 @@ typedef struct __attribute__ ((packed)) _USB_HUB_PORT_STATUS
 
     }   wPortStatus;
 
-    union
-    {
-        struct
-        {
+    union {
+        struct {
         	uint8_t     C_PORT_CONNECTION    : 1;
         	uint8_t     C_PORT_ENABLE        : 1;
         	uint8_t     C_PORT_SUSPEND       : 1;
@@ -123,12 +122,10 @@ typedef struct __attribute__ ((packed)) _USB_HUB_PORT_STATUS
 } USB_HUB_PORT_STATUS;
 
 
-typedef struct __attribute__ ((packed)) _USB_PORT_CHANGE
-{
+typedef struct __attribute__ ((packed)) _USB_PORT_CHANGE{
     union
     {
-        struct
-        {
+        struct {
 			uint8_t     PORT_1    : 1;
 			uint8_t     PORT_2    : 1;
 			uint8_t     PORT_3    : 1;
@@ -145,8 +142,7 @@ typedef struct __attribute__ ((packed)) _USB_PORT_CHANGE
 
 } USB_PORT_CHANGE;
 
-typedef enum
-{
+typedef enum{
 	HUB_IDLE= 0,
 	HUB_SYNC,
 	HUB_BUSY,
@@ -166,8 +162,7 @@ typedef enum
 
 } HUB_StateTypeDef;
 
-typedef enum
-{
+typedef enum{
 	HUB_REQ_IDLE = 0,
 	HUB_REQ_SET_POWER,
 	HUB_WAIT_PWRGOOD,
@@ -178,13 +173,14 @@ typedef enum
 	HUB_REQ_SCAN_STATUSES,
 	HUB_REQ_SCAN_STATUSES_DONE,
 	HUB_DELAY,
-	HUB_PORT_ALREADY_INITED
+	HUB_INIT_IN_PROGRESS,
+	HUB_PORT_ALREADY_INITED,
+	USBH_HUB_PORTS_ARE_INITIALIZED
 }
 HUB_CtlStateTypeDef;
 
 /* Structure for HUB process */
-typedef struct _HUB_Process
-{
+typedef struct _HUB_Process{
 	//USBH_DeviceTypeDef    devices [MAX_HUB_PORTS];
 	USBH_TargetTypeDef target;
 	USBH_TargetTypeDef	Targets [MAX_HUB_PORTS];	/* Enumeration targets */
@@ -206,7 +202,12 @@ typedef struct _HUB_Process
   uint8_t              DataReady;
 
   uint8_t address;	// USB bus addres of this hub
-  struct _HUB_Process * parrent;	/* parrent hub of this hub. NULL for root. */
+
+  struct _HUB_Process* parentHub;
+  USBH_DeviceTypeDef*  devices[MAX_HUB_PORTS]; // ECT = 4 , ERT = 10
+  struct _HUB_Process* hubs[CHILD_HUBS];	/* child HUBs for this HUB */
+  HUB_CtlStateTypeDef  initState;
+  uint8_t portNeedToEnumerate;
 
   uint8_t  NumPorts;	// See bNbrPorts specs
   uint16_t pwrGoodDelay;
@@ -215,7 +216,6 @@ typedef struct _HUB_Process
   __IO USB_PORT_CHANGE HUB_Change;
   __IO uint8_t HUB_CurPort;
   __IO USB_HUB_PORT_STATUS *pChangeInfo;
-
 } HUB_HandleTypeDef;
 
 
@@ -223,5 +223,7 @@ extern USBH_ClassTypeDef  HUB_Class;
 #define USBH_HUB_CLASS    &HUB_Class
 
 USBH_StatusTypeDef checkHubPort(USBH_HandleTypeDef *phost);
+
+
 
 #endif	// __USBH_HUB_H
