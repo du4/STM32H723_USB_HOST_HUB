@@ -43,7 +43,7 @@ extern "C" {
 /* USER CODE BEGIN EC */
 
 
-#define I2C_ADDRESS        0x03
+#define I2C_ADDRESS        6
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

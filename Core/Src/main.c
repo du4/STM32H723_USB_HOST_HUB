@@ -45,7 +45,7 @@
 /* USER CODE BEGIN PM */
 #define USBHS_MAX_BULK_HS_PACKET_SIZE	512
 #define USBHS_MAX_BULK_FS_PACKET_SIZE	64
-#define BTN_DELAY	5000000
+#define BTN_DELAY	15000000
 
 #define DEVICE_COUNT	2
 #define USB_SOP				0x23
@@ -147,16 +147,14 @@ extern ApplicationTypeDef Appli_state;
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
-  MX_TIM3_Init();
-  MX_TIM4_Init();
-  MX_USB_HOST_Init();
+//  MX_TIM3_Init();
+//  MX_TIM4_Init();
+//  MX_USB_HOST_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK){
-      Error_Handler();
-  }
-  HAL_TIM_Base_Stop(&htim4);
-  HAL_TIM_Base_Stop(&htim3);
+//  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK) Error_Handler();
+//  HAL_TIM_Base_Stop(&htim4);
+//  HAL_TIM_Base_Stop(&htim3);
 
   printf("\n\r===========================================\n\rUSB HOST become to main loop.\r\n");
 
@@ -236,39 +234,24 @@ extern ApplicationTypeDef Appli_state;
 		  /* While the I2C in reception process, user can transmit data through
 			 "aTxBuffer" buffer */
 		  /* Timeout is set to 3S */
-			  printf("HAL_I2C_Master_Transmit.\r\n");
-			  i2cSendState = 1;
-			  while(HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t*)aTxBuffer, i2cBufSize, 8000)!= HAL_OK){
+		  printf("HAL_I2C_Master_Transmit.\r\n");
+		  HAL_StatusTypeDef hal_status = HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t*)aTxBuffer, i2cBufSize, 8000);
 		/* Error_Handler() function is called when Timeout error occurs.
 		   When Acknowledge failure occurs (Slave don't acknowledge its address)
 		   Master restarts communication */
-				if (HAL_I2C_GetError(&hi2c2) != HAL_I2C_ERROR_AF){
-				  printf("I2C Transfer error %d.\r\n", (int)HAL_I2C_GetError(&hi2c2));
-				  i2cSendState = 0;
-				  break;
-		//		  Error_Handler();
-				}
-			  }
-
-		/*##-3- Put I2C peripheral in reception process ############################*/
-		 /* Timeout is set to 3S */
-			  if(i2cSendState != 0){
-				 i2cSendState = 2;
+			if (hal_status != HAL_OK){
+				  printf("hal_status=%d\tHAL_I2C_GetError=%d.\r\n", hal_status, (int)HAL_I2C_GetError(&hi2c2));
+			}else{
+				 HAL_Delay(100);
 				 printf("HAL_I2C_Master_Receive.\r\n");
-				 while(HAL_I2C_Master_Receive(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t *)aRxBuffer, i2cBufSize, 8000) != HAL_OK){
-				   /* Error_Handler() function is called when Timeout error occurs.
-					  When Acknowledge failure occurs (Slave don't acknowledge it's address)
-					  Master restarts communication */
-				   if (HAL_I2C_GetError(&hi2c2) != HAL_I2C_ERROR_AF) {
+				 hal_status = HAL_I2C_Master_Receive(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t *)aRxBuffer, i2cBufSize, 8000);
+				 if (hal_status != HAL_OK){
 					 printf("I2C Reception error %d.\r\n", (int)HAL_I2C_GetError(&hi2c2));
-					 i2cSendState = 0;
-			//		 Error_Handler();
-				   }
-				 }
-				 if(i2cSendState == 2){
+				 }else{
 					 printf("Transfer in reception process is correct.\r\n");
 				 }
-			  }
+			}
+
 #endif
 
 #ifdef USB_USE
