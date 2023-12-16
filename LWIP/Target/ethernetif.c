@@ -114,7 +114,17 @@ ETH_DMADescTypeDef DMATxDscrTab[ETH_TX_DESC_CNT] __attribute__((section(".TxDecr
 #endif
 
 /* USER CODE BEGIN 2 */
+#if defined ( __ICCARM__ ) /*!< IAR Compiler */
+#pragma location = 0x30040200
+extern u8_t memp_memory_RX_POOL_base[];
 
+#elif defined ( __CC_ARM )  /* MDK ARM Compiler */
+__attribute__((at(0x30040200)) extern u8_t memp_memory_RX_POOL_base[];
+
+#elif defined ( __GNUC__ ) /* GNU Compiler */
+__attribute__((section(".Rx_PoolSection"))) extern u8_t memp_memory_RX_POOL_base[];
+
+#endif
 /* USER CODE END 2 */
 
 /* Global Ethernet handle */
@@ -168,12 +178,12 @@ static void low_level_init(struct netif *netif)
   MACAddr[2] = 0xE1;
   MACAddr[3] = 0x00;
   MACAddr[4] = 0x00;
-  MACAddr[5] = 0x00;
+  MACAddr[5] = 0x06;
   heth.Init.MACAddr = &MACAddr[0];
   heth.Init.MediaInterface = HAL_ETH_RMII_MODE;
   heth.Init.TxDesc = DMATxDscrTab;
   heth.Init.RxDesc = DMARxDscrTab;
-  heth.Init.RxBuffLen = 1536;
+  heth.Init.RxBuffLen = 1524;
 
   /* USER CODE BEGIN MACADDRESS */
 
