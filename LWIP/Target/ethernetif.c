@@ -33,14 +33,14 @@
 
 /* Within 'USER CODE' section, code will be kept by default at each generation */
 /* USER CODE BEGIN 0 */
-
+#include "device.h"
 /* USER CODE END 0 */
 
 /* Private define ------------------------------------------------------------*/
 
 /* Network interface name */
-#define IFNAME0 's'
-#define IFNAME1 't'
+#define IFNAME0 'q'
+#define IFNAME1 's'
 
 /* ETH Setting  */
 #define ETH_DMA_TRANSMIT_TIMEOUT               ( 20U )
@@ -48,7 +48,7 @@
 /* ETH_RX_BUFFER_SIZE parameter is defined in lwipopts.h */
 
 /* USER CODE BEGIN 1 */
-
+extern QDeviceTypeDef qDevice;
 /* USER CODE END 1 */
 
 /* Private variables ---------------------------------------------------------*/
@@ -186,7 +186,12 @@ static void low_level_init(struct netif *netif)
   heth.Init.RxBuffLen = 1524;
 
   /* USER CODE BEGIN MACADDRESS */
-
+   MACAddr[0] = (uint8_t)(qDevice.serials.MAC>>40);
+   MACAddr[1] = (uint8_t)(qDevice.serials.MAC>>32);
+   MACAddr[2] = (uint8_t)(qDevice.serials.MAC>>24);
+   MACAddr[3] = (uint8_t)(qDevice.serials.MAC>>16);
+   MACAddr[4] = (uint8_t)(qDevice.serials.MAC>>8);
+   MACAddr[5] = (uint8_t)(qDevice.serials.MAC);
   /* USER CODE END MACADDRESS */
 
   hal_eth_init_status = HAL_ETH_Init(&heth);
