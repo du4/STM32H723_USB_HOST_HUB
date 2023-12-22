@@ -39,8 +39,8 @@
 /* Private define ------------------------------------------------------------*/
 
 /* Network interface name */
-#define IFNAME0 'q'
-#define IFNAME1 's'
+#define IFNAME0 's'
+#define IFNAME1 't'
 
 /* ETH Setting  */
 #define ETH_DMA_TRANSMIT_TIMEOUT               ( 20U )

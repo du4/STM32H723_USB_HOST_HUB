@@ -148,7 +148,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-//static void MPU_Initialize(void);
+static void MPU_Initialize(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
@@ -308,7 +308,7 @@ extern ApplicationTypeDef Appli_state;
 					CDC_STATE = CDC_BUSY;
 				}
 				default:  break;
-				}
+			}
 		}
     }
 
@@ -343,10 +343,10 @@ extern ApplicationTypeDef Appli_state;
 #ifdef USB_USE
     		usbSendState ^= 1;
     		if(usbSendState != 0){
-    		__HAL_TIM_SET_COUNTER(&htim3, 0);
-    		HAL_TIM_Base_Start(&htim3);
+				__HAL_TIM_SET_COUNTER(&htim8, 0);
+				HAL_TIM_Base_Start_IT(&htim8);
     		}else{
-    			HAL_TIM_Base_Start_IT(&htim3);
+    			HAL_TIM_Base_Stop_IT(&htim8);
     			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
     		}
 #endif
@@ -373,6 +373,17 @@ extern ApplicationTypeDef Appli_state;
     	btnCounter = 0;
     }
 
+	 // stop continuous measuring if don't get continue measuring
+#ifdef uninterruptableMeasurementWatchdogInterval
+   if (qDevice.qMeasurer.streamMeasurementStatus == ENABLE){
+	   if ((HAL_GetTick() - qDevice.qMeasurer.uninterruptableMeasurementWatchdog) > uninterruptableMeasurementWatchdogInterval){
+		   stopStreamMeasuering();
+		   if (eMBDisable() == MB_ENOERR){
+			   eMBEnable();
+		   }
+	   }
+   }
+#endif
 
 //    if(Appli_state == APPLICATION_READY){
 //    	USBH_StatusTypeDef status   = USBH_CDC_Transmit(&hUsbHostHS, cdc_tx_buf, 64);

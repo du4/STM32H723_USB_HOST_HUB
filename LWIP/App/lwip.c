@@ -28,7 +28,7 @@
 #include "ethernetif.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "device.h"
 /* USER CODE END 0 */
 /* Private function prototypes -----------------------------------------------*/
 static void ethernet_link_status_updated(struct netif *netif);
@@ -37,7 +37,7 @@ static void Ethernet_Link_Periodic_Handle(struct netif *netif);
 void Error_Handler(void);
 
 /* USER CODE BEGIN 1 */
-
+extern QDeviceTypeDef qDevice;
 /* USER CODE END 1 */
 uint32_t EthernetLinkTimer;
 
@@ -74,6 +74,28 @@ void MX_LWIP_Init(void)
   GATEWAY_ADDRESS[3] = 0;
 
 /* USER CODE BEGIN IP_ADDRESSES */
+  /* IP addresses initialization */
+  	if(qDevice.eth_params.autoIP == 0){
+//  		ipaddr = qDevice.eth_params.IPaddr;
+		IP_ADDRESS[0] = ip4_addr1(&qDevice.eth_params.IPaddr);
+		IP_ADDRESS[1] = ip4_addr2(&qDevice.eth_params.IPaddr);
+		IP_ADDRESS[2] = ip4_addr3(&qDevice.eth_params.IPaddr);
+		IP_ADDRESS[3] = ip4_addr4(&qDevice.eth_params.IPaddr);
+	//  		netmask = qDevice.eth_params.IPmask;
+		NETMASK_ADDRESS[0] = ip4_addr1(&qDevice.eth_params.IPmask);
+		NETMASK_ADDRESS[1] = ip4_addr2(&qDevice.eth_params.IPmask);
+		NETMASK_ADDRESS[2] = ip4_addr3(&qDevice.eth_params.IPmask);
+		NETMASK_ADDRESS[3] = ip4_addr4(&qDevice.eth_params.IPmask);
+	//  		gw = qDevice.eth_params.IPgate;
+		GATEWAY_ADDRESS[0] = ip4_addr1(&qDevice.eth_params.IPgate);
+		GATEWAY_ADDRESS[1] = ip4_addr2(&qDevice.eth_params.IPgate);
+		GATEWAY_ADDRESS[2] = ip4_addr3(&qDevice.eth_params.IPgate);
+		GATEWAY_ADDRESS[3] = ip4_addr4(&qDevice.eth_params.IPgate);
+  	}else{
+  		ipaddr.addr = 0;
+  		netmask.addr = 0;
+  		gw.addr = 0;
+  	}
 /* USER CODE END IP_ADDRESSES */
 
   /* Initilialize the LwIP stack without RTOS */
@@ -176,11 +198,13 @@ static void ethernet_link_status_updated(struct netif *netif)
   if (netif_is_up(netif))
   {
 /* USER CODE BEGIN 5 */
+	  printf("Eth link is UP!");
 /* USER CODE END 5 */
   }
   else /* netif is down */
   {
 /* USER CODE BEGIN 6 */
+	  printf("Eth link is Down!");
 /* USER CODE END 6 */
   }
 }
