@@ -508,7 +508,8 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
     USHORT varPointer, finishAddr;
     float32_t		tmpF;
     uint16_t		value16, i;
-    uint32_t value32;
+    uint32_t value32, mbOffset;
+    USHORT* dataOffset, regPinter;
     uint8_t *pointer = pucRegBuffer;
 
     if ( usAddress >= 0 ) {
@@ -655,6 +656,13 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 					break;
 					}
 				}
+				else if (varPointer >= hSerialsBase && varPointer <= (hSerialsBase + hSerialsSize)) {
+					mbOffset = varPointer - hSerialsBase;
+					value16 = *((USHORT*)(pucRegBuffer + 2*mbOffset));
+					value16 = __REV16(value16);
+					dataOffset = (USHORT*)(&qDevice.serials) + mbOffset;
+					*dataOffset = value16;
+				}
         }
     }
     }else{
@@ -668,6 +676,7 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 	USHORT* pointer = 0;
 	uint32_t mbOffset;
 	USHORT* dataOffset;
+	float32_t fValue;
 
 	for (addrIndex = usAddress; addrIndex < finishAddr; ++addrIndex) {
 
@@ -688,6 +697,13 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 			*(usRegHoldingBuf++) = *dataOffset;
 		}
 
+		if ((addrIndex >= hEthParamsBase) && (addrIndex <= (hEthParamsBase + hEthParamsSize))) {
+					mbOffset = addrIndex - hEthParamsBase;
+					dataOffset = (USHORT*)&qDevice.eth_params + mbOffset;
+					*(usRegHoldingBuf++) = *dataOffset;
+		}
+
+
 		if ((addrIndex >= hGitCommitBase) && (addrIndex <= (hGitCommitBase + GIT_COMMIT_SIZE)) && (addrIndex%2==0)) {
 			mbOffset = addrIndex - hGitCommitBase;
 			switch(mbOffset){
@@ -698,22 +714,51 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 				break;
 			case hGitBranchOffset:
 				setStringToHoldings(hGitBranchOffset, 20, GIT_BRANCH, (char*)usRegHoldingBuf);
+				usRegHoldingBuf += 20;
 				break;
 			case hGitCommitMessageOffset:
 				setStringToHoldings(hGitCommitMessageOffset, 20, GIT_COMMIT_MESSAGE, (char*)usRegHoldingBuf);
+				usRegHoldingBuf += 20;
 				break;
 			case hGitStampOffset:
 				setStringToHoldings(hGitStampOffset, 20, GIT_COMMIT_STAMP, (char*)usRegHoldingBuf);
+				usRegHoldingBuf += 20;
 				break;
 			}
-//			*(usRegHoldingBuf++) = *dataOffset;
 		}
 
-		if ((addrIndex >= hEthParamsBase) && (addrIndex <= (hEthParamsBase + hEthParamsSize))) {
-			mbOffset = addrIndex - hEthParamsBase;
-			dataOffset = (USHORT*)&qDevice.eth_params + mbOffset;
+		if ((addrIndex >= hAdcParamsBase) && (addrIndex <= (hAdcParamsBase + hAdcParamsSize))) {
+			mbOffset = addrIndex - hAdcParamsBase;
+			dataOffset = (USHORT*)&qDevice.adcEntitie.settings + mbOffset;
 			*(usRegHoldingBuf++) = *dataOffset;
 		}
+
+		if ( (addrIndex >= hPermanentParamBase) && (addrIndex <= (hPermanentParamBase + hPermanentParamsSize))) {
+			mbOffset = addrIndex - hPermanentParamBase;
+			switch(mbOffset){
+				case hProtocolVersion: *(usRegHoldingBuf++) = UDP_PROTOCOL_VERSION; break;
+				case hElectrodesCount: *(usRegHoldingBuf++) = ELECTRODES_COUNT; break;
+				case hAdcBitRate: *(usRegHoldingBuf++) = ADC_BITRATE; break;
+				case hPllClkRatioAD9958: *(usRegHoldingBuf++) = qDevice.qGenerator.DDS_PLL_value; break;
+				case hADC_reference:
+					fValue = ADC_REFERENCE;
+					pointer = (USHORT*)&fValue;
+					*(usRegHoldingBuf++) = *(pointer++);
+					*(usRegHoldingBuf++) = *(pointer++);
+					break;
+				case hU_Gen_Max:
+					fValue = 1.234;
+					pointer = (USHORT*)&fValue;
+					*(usRegHoldingBuf++) = *(pointer++);
+					*(usRegHoldingBuf++) = *(pointer++);
+					break;
+			}
+		}
+
+		if (addrIndex == hACR_AD9958ToOneVoltCoef) {
+			*(usRegHoldingBuf++) = (uint16_t)qDevice.qGenerator.AD9958ToOneVoltCoef;
+		}
+
 
 		if ((addrIndex >= hSerialsBase) && (addrIndex <= (hSerialsBase + hSerialsSize))) {
 			mbOffset = addrIndex - hSerialsBase;

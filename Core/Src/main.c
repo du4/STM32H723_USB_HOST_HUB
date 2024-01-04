@@ -57,7 +57,7 @@
 /* USER CODE BEGIN PM */
 #define USBHS_MAX_BULK_HS_PACKET_SIZE	512
 #define USBHS_MAX_BULK_FS_PACKET_SIZE	64
-#define BTN_DELAY	5000000
+#define BTN_DELAY	2000000
 
 #define DEVICE_COUNT	2
 #define USB_SOP				0x23
@@ -129,7 +129,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 		QAdcMeasuremenLine* line = &qDevice.adcEntitie.measurementLines[0];
 		line->tick = 0;
 		for (int i = 0; i < ADC_CHANNEL_SIZE; ++i) {
-			line ->measurements[i] = qDevice.adcEntitie.pCoef * qDevice.adcEntitie.adcValues[i];
+			line ->measurements[i] = qDevice.adcEntitie.settings.pCoef * qDevice.adcEntitie.adcValues[i];
 		}
 		qDevice.adcEntitie.singleMeasurementFlag = RESET;
 	}else{
@@ -148,7 +148,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MPU_Initialize(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
@@ -221,8 +220,6 @@ extern ApplicationTypeDef Appli_state;
   MX_USART3_UART_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Stop(&htim4);
-  HAL_TIM_Base_Stop(&htim3);
 
   if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED) != HAL_OK) Error_Handler();
   /*##-3- Set DAC Channel1 DHR register ######################################*/
@@ -243,6 +240,8 @@ extern ApplicationTypeDef Appli_state;
   /* USER CODE BEGIN WHILE */
 
   USBH_StatusTypeDef status = 0;
+
+/************* main loop ********************/
   while (1){
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
@@ -254,11 +253,10 @@ extern ApplicationTypeDef Appli_state;
 	/* Check if ModBus packet received */
 	if(eMBPoll() != MB_ENOERR) Error_Handler();
 
-	// send measurement bank via UDP
+	// send ADC measurement packet via UDP if it's ready to send
 	if(ethBankIsFullStatus == SET){
 		ethBankIsFullStatus = RESET;
 		printf("Last adc1_3(P1)=%f, acd1_10(P2)=%f\r\n",qDevice.adcEntitie.measurementLines[99].measurements[0],qDevice.adcEntitie.measurementLines[99].measurements[1]);
-
 		size_t size = sizeof(QAdcMeasuremenLine)*ADC_LINES_SIZE;
 		udpClientSend(&qDevice.adcEntitie.measurementLines[0], size);
 		memset(&qDevice.adcEntitie.measurementLines[0], 0, size);
@@ -294,18 +292,33 @@ extern ApplicationTypeDef Appli_state;
 		if (Appli_state == APPLICATION_READY){
 			switch (CDC_STATE){
 				case CDC_SEND:{
+
 					hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
 					if(cdc_HandlesIndex >= DEVICE_COUNT){
 						cdc_HandlesIndex = 0;
 					}
+
 					status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
-					CDC_STATE = CDC_BUSY;
+					if(status == USBH_OK) {
+						CDC_STATE = CDC_BUSY;
+					}else{
+						printf("USBH_CDC_Transmit error %d", status);
+						CDC_STATE = CDC_SEND;
+					}
 					break;
 				}
 				case CDC_RECEIVE:{
 					memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
-					if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, USBHS_MAX_BULK_FS_PACKET_SIZE-2);
-					CDC_STATE = CDC_BUSY;
+
+					status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, USBHS_MAX_BULK_FS_PACKET_SIZE-2);
+					if(status == USBH_OK) {
+						CDC_STATE = CDC_BUSY;
+					}
+					else{
+						printf("USBH_CDC_Receive error %d", status);
+						CDC_STATE = CDC_SEND;
+					}
+					break;
 				}
 				default:  break;
 			}
@@ -322,13 +335,14 @@ extern ApplicationTypeDef Appli_state;
 #ifdef I2C_USE
 		  printf("HAL_I2C_Master_Transmit.\r\n");
 		  HAL_StatusTypeDef hal_status = HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t*)aTxBuffer, i2cBufSize, 8000);
-		/* Error_Handler() function is called when Timeout error occurs.
-		   When Acknowledge failure occurs (Slave don't acknowledge its address)
-		   Master restarts communication */
+/* Error_Handler() function is called when Timeout error occurs.
+   When Acknowledge failure occurs (Slave don't acknowledge its address)
+   Master restarts communication
+*/
 			if (hal_status != HAL_OK){
 				  printf("hal_status=%d\tHAL_I2C_GetError=%d.\r\n", hal_status, (int)HAL_I2C_GetError(&hi2c2));
 			}else{
-				 HAL_Delay(100);
+				 HAL_Delay(50);
 				 printf("HAL_I2C_Master_Receive.\r\n");
 				 hal_status = HAL_I2C_Master_Receive(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t *)aRxBuffer, i2cBufSize, 8000);
 				 if (hal_status != HAL_OK){
@@ -343,11 +357,17 @@ extern ApplicationTypeDef Appli_state;
 #ifdef USB_USE
     		usbSendState ^= 1;
     		if(usbSendState != 0){
+    			printf("Button toggle event. Start USB sending.\r\n");
 				__HAL_TIM_SET_COUNTER(&htim8, 0);
 				HAL_TIM_Base_Start_IT(&htim8);
+				CDC_STATE = CDC_SEND;
     		}else{
     			HAL_TIM_Base_Stop_IT(&htim8);
     			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
+    			printf("Button toggle event. Stop USB sending.\r\n");
+    			packetSendCounter = 0;
+    			packetReceiveCounter = 0;
+    			bytesReceiveCounter = 0;
     		}
 #endif
 

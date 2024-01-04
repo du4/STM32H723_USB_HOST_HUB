@@ -59,7 +59,7 @@ extern int packetSendCounter;
 extern int packetReceiveCounter;
 extern int bytesReceiveCounter;
 extern uint8_t cdc_tx_buf[];
-extern ApplicationTypeDef Appli_state;
+//extern ApplicationTypeDef Appli_state;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -275,7 +275,7 @@ void TIM8_UP_TIM13_IRQHandler(void)
 	HAL_GPIO_TogglePin(RedLed_GPIO_Port, RedLed_Pin);
 
 //	if(Appli_state == APPLICATION_READY){
-	printf("FS HOST sendPc=%d; reseivePc=%d rBytes=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
+	printf("sPc=%d; rPc=%d rB=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
 //	}
 	packetReceiveCounter=0;
 	packetSendCounter=0;
