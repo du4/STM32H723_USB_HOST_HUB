@@ -508,8 +508,8 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
     USHORT varPointer, finishAddr;
     float32_t		tmpF;
     uint16_t		value16, i;
-    uint32_t value32, mbOffset;
-    USHORT* dataOffset, regPinter;
+    uint32_t mbOffset;
+    USHORT* dataOffset;
     uint8_t *pointer = pucRegBuffer;
 
     if ( usAddress >= 0 ) {
@@ -561,6 +561,7 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 					break;
 				case (hMeasuringParamtersBase+hSinAmplitudeAD9958Offset):
 					tmpF = arrayMBToFloat(pointer);
+					qDevice.qMeasurer.measuringParameters.amplitude = tmpF;
 //					setGeneratorAmplitude(&tmpF);
 //					generatorStart(&qDevice.qGenerator);
 					break;
@@ -588,57 +589,56 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 //					initGenerator(&qDevice.qMeasurer, &qDevice.qGenerator);
 					break;
 
-				case hACR_AD9958ToOneVoltCoef:
+				case hDDSOneVoltCoef:
 					qDevice.qGenerator.AD9958ToOneVoltCoef = getRegisterValueFromBuf(pointer);
 					break;
 
-				case hTcpIpAddress:
-					qDevice.eth_params.IPaddr.addr = arrayPionterToUint32(pointer);
-					break;
-				case hTcpIpMask:
-					qDevice.eth_params.IPmask.addr = arrayPionterToUint32(pointer);
-					break;
-				case hTcpIpGate:
-					qDevice.eth_params.IPgate.addr = arrayPionterToUint32(pointer);
-					break;
-				case (hEthParamsBase + hUdpServerAddrOffset):
-						value32 = arrayPionterToUint32(pointer);
-						if(value32 != qDevice.eth_params.udpServerAddr.addr){
-							qDevice.eth_params.udpServerAddr.addr = value32;
-							udpClientDisconnect();
-							udpClientConnect(qDevice.eth_params.udpServerAddr, qDevice.eth_params.udpPort);
-//							printf("Set new UDP server address %d.%d.%d.%d \r\n",
-//									(qDevice.eth_params.udpServerAddr.addr & 0xFF),
-//									((qDevice.eth_params.udpServerAddr.addr >> 8) & 0xFF),
-//									((qDevice.eth_params.udpServerAddr.addr >> 16) & 0xFF),
-//									((qDevice.eth_params.udpServerAddr.addr >> 24 )& 0xFF)
-//									);
-						}
-					break;
-				case (hEthParamsBase + hServerUdpPortOffset):
-					value16 = getRegisterValueFromBuf(pointer);
-					if(value16 != qDevice.eth_params.udpPort){
-						qDevice.eth_params.udpPort = value16;
-						udpClientDisconnect();
-						udpClientConnect(qDevice.eth_params.udpServerAddr, qDevice.eth_params.udpPort);
-//						printf("Set new UDP port %d\r\n", value16);
-					}
-					break;
-				case hModBusTcpPort:
-					qDevice.eth_params.modBusTcpPort = getRegisterValueFromBuf(pointer);
-					break;
+//				case hTcpIpAddress:
+//					qDevice.eth_params.IPaddr.addr = arrayPionterToUint32(pointer);
+//					break;
+//				case hTcpIpMask:
+//					qDevice.eth_params.IPmask.addr = arrayPionterToUint32(pointer);
+//					break;
+//				case hTcpIpGate:
+//					qDevice.eth_params.IPgate.addr = arrayPionterToUint32(pointer);
+//					break;
+//				case (hEthParamsBase + hUdpServerAddrOffset):
+//						value32 = arrayPionterToUint32(pointer);
+//						if(value32 != qDevice.eth_params.udpServerAddr.addr){
+//							qDevice.eth_params.udpServerAddr.addr = value32;
+//							udpClientDisconnect();
+//							udpClientConnect(qDevice.eth_params.udpServerAddr, qDevice.eth_params.udpPort);
+//					break;
+//				case (hEthParamsBase + hServerUdpPortOffset):
+//					value16 = getRegisterValueFromBuf(pointer);
+//					if(value16 != qDevice.eth_params.udpPort){
+//						qDevice.eth_params.udpPort = value16;
+//						udpClientDisconnect();
+//						udpClientConnect(qDevice.eth_params.udpServerAddr, qDevice.eth_params.udpPort);
+////						printf("Set new UDP port %d\r\n", value16);
+//					}
+//					break;
+//				case hModBusTcpPort:
+//					qDevice.eth_params.modBusTcpPort = getRegisterValueFromBuf(pointer);
+//					break;
 				}
 
-				if (usAddress >= MANAGMENT_REGISTER_BASE && usAddress <= MANAGMENT_REGISTER_BASE + MANAGMENT_REGISTERS_SIZE) {
+				if (varPointer >= hEthParamsBase && varPointer <= (hEthParamsBase + hEthParamsSize)) {
+					value16 = *((USHORT*)(pucRegBuffer + 2*(varPointer-usAddress)));
+					value16 = __REV16(value16);
+					dataOffset = (USHORT*)(&qDevice.eth_params) + (varPointer - hEthParamsBase);
+					*dataOffset = value16;
+				}
+
+				else if (usAddress >= MANAGMENT_REGISTER_BASE && usAddress <= MANAGMENT_REGISTER_BASE + MANAGMENT_REGISTERS_SIZE) {
 					switch (varPointer) {
 					case hreboot:
 						qDevice.deviceResetFlag = 2;
 						break;
-					case hErase_page:
-
-						break;
+					case hErase_page: break;
 					case hSaveToFLASH:
 						save_To_FLASH(&qDevice);
+						qDevice.deviceResetFlag = 2;
 						break;
 					case hStreamMeasuring:
 						value16 = getRegisterValueFromBuf(pointer);
@@ -752,10 +752,12 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 					*(usRegHoldingBuf++) = *(pointer++);
 					*(usRegHoldingBuf++) = *(pointer++);
 					break;
+				case hDeviceType: *(usRegHoldingBuf++) = MSI_TYPE; break;
+				case hLpcCount:  *(usRegHoldingBuf++) = LPC_MCU_SIZE; break;
 			}
 		}
 
-		if (addrIndex == hACR_AD9958ToOneVoltCoef) {
+		if (addrIndex == hDDSOneVoltCoef) {
 			*(usRegHoldingBuf++) = (uint16_t)qDevice.qGenerator.AD9958ToOneVoltCoef;
 		}
 

@@ -405,9 +405,13 @@ extern ApplicationTypeDef Appli_state;
    }
 #endif
 
-//    if(Appli_state == APPLICATION_READY){
-//    	USBH_StatusTypeDef status   = USBH_CDC_Transmit(&hUsbHostHS, cdc_tx_buf, 64);
-//    }
+//		software reset if deviceResetFlag is set
+	if(qDevice.deviceResetFlag != RESET){
+		qDevice.deviceResetFlag--;
+		if(qDevice.deviceResetFlag == RESET){
+			NVIC_SystemReset();
+		}
+	}
   }
   /* USER CODE END 3 */
 }
