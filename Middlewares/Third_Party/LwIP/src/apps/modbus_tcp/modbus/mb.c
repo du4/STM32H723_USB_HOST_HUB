@@ -657,10 +657,9 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 					}
 				}
 				else if (varPointer >= hSerialsBase && varPointer <= (hSerialsBase + hSerialsSize)) {
-					mbOffset = varPointer - hSerialsBase;
-					value16 = *((USHORT*)(pucRegBuffer + 2*mbOffset));
+					value16 = *((USHORT*)(pucRegBuffer + 2*(varPointer-usAddress)));
 					value16 = __REV16(value16);
-					dataOffset = (USHORT*)(&qDevice.serials) + mbOffset;
+					dataOffset = (USHORT*)(&qDevice.serials) + varPointer - hSerialsBase;
 					*dataOffset = value16;
 				}
         }
@@ -698,9 +697,9 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 		}
 
 		if ((addrIndex >= hEthParamsBase) && (addrIndex <= (hEthParamsBase + hEthParamsSize))) {
-					mbOffset = addrIndex - hEthParamsBase;
-					dataOffset = (USHORT*)&qDevice.eth_params + mbOffset;
-					*(usRegHoldingBuf++) = *dataOffset;
+			mbOffset = addrIndex - hEthParamsBase;
+			dataOffset = (USHORT*)&qDevice.eth_params + mbOffset;
+			*(usRegHoldingBuf++) = *dataOffset;
 		}
 
 
@@ -708,7 +707,8 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 			mbOffset = addrIndex - hGitCommitBase;
 			switch(mbOffset){
 			case hGitShortHashOffset:
-				pointer = (USHORT*)&qDevice.gitHashVersion;
+				uint32_t gitHash = GIT_SHORT_HASH;
+				pointer = (USHORT*)&gitHash;
 				*(usRegHoldingBuf++) = *(pointer++);
 				*(usRegHoldingBuf++) = *(pointer++);
 				break;
@@ -753,7 +753,7 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 					*(usRegHoldingBuf++) = *(pointer++);
 					break;
 				case hDeviceType: *(usRegHoldingBuf++) = MSI_TYPE; break;
-				case hLpcCount:  *(usRegHoldingBuf++) = LPC_MCU_SIZE; break;
+				case hLpcCount:  *(usRegHoldingBuf++) = LPC_ECT_MCU_SIZE; break;
 			}
 		}
 

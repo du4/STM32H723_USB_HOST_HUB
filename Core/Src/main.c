@@ -33,6 +33,7 @@
 #include "measurer.h"
 #include "dds.h"
 #include "generator.h"
+#include "tomograph.h"
 
 #include "udpClient.h"
 /* USER CODE END Includes */
@@ -95,7 +96,6 @@ int bytesReceiveCounter = 0;
 int btnCounter = 0;
 
 int usbSendState = 0;
-int i2cSendState = 0;
 
 uint8_t ethBankIsFullStatus;
 
@@ -203,6 +203,7 @@ extern ApplicationTypeDef Appli_state;
 
   /* USER CODE BEGIN SysInit */
   initDevice(&qDevice);
+  initTomograph(&qDevice.tomographConfig, &qDevice.qMeasurer.measuringParameters, &qDevice.muxTable, (QLpcElectodeCoefs*)null);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
