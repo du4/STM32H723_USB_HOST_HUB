@@ -65,6 +65,7 @@ extern uint8_t cdc_tx_buf[];
 /* External variables --------------------------------------------------------*/
 extern HCD_HandleTypeDef hhcd_USB_OTG_HS;
 extern DMA_HandleTypeDef hdma_adc1;
+extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim8;
@@ -225,6 +226,26 @@ void DMA1_Stream0_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles TIM1 update interrupt.
+  */
+void TIM1_UP_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM1_UP_IRQn 0 */
+	if(__HAL_TIM_GET_FLAG(&htim4, TIM_FLAG_UPDATE) != RESET){
+		__HAL_TIM_DISABLE(&htim4);
+		qDevice.main_cycle_counter = 0;
+		DDS_Sleep_Timer->CNT = 0;
+		DDS_Power_Control(DDS_POWER_DOWN);
+		__HAL_TIM_CLEAR_IT(&htim4, TIM_IT_UPDATE);
+	}
+  /* USER CODE END TIM1_UP_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim1);
+  /* USER CODE BEGIN TIM1_UP_IRQn 1 */
+
+  /* USER CODE END TIM1_UP_IRQn 1 */
+}
+
+/**
   * @brief This function handles TIM2 global interrupt.
   */
 void TIM2_IRQHandler(void)
@@ -244,13 +265,7 @@ void TIM2_IRQHandler(void)
 void TIM4_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM4_IRQn 0 */
-	if(__HAL_TIM_GET_FLAG(&htim4, TIM_FLAG_UPDATE) != RESET){
-		__HAL_TIM_DISABLE(&htim4);
-		qDevice.main_cycle_counter = 0;
-		DDS_Sleep_Timer->CNT = 0;
-		DDS_Power_Control(DDS_POWER_DOWN);
-		__HAL_TIM_CLEAR_IT(&htim4, TIM_IT_UPDATE);
-	}
+	printf("Cut event at %d us", htim2.Instance->CNT);
   /* USER CODE END TIM4_IRQn 0 */
   HAL_TIM_IRQHandler(&htim4);
   /* USER CODE BEGIN TIM4_IRQn 1 */
