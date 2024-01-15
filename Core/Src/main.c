@@ -56,48 +56,30 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define USB_FS	0
-#define USB_HS	1
 
-#define USBHS_MAX_BULK_HS_PACKET_SIZE	512
-#define USBHS_MAX_BULK_FS_PACKET_SIZE	64
-
-#define USB_SPEED	USB_FS
-
-#if (USB_SPEED == USB_FS)
-	#define USBHS_MAX_BULK_PACKET_SIZE USBHS_MAX_BULK_FS_PACKET_SIZE
-#else
-	#define USBHS_MAX_BULK_PACKET_SIZE USBHS_MAX_BULK_HS_PACKET_SIZE
-#endif
 
 #define BTN_DELAY	2000000
 
 #define DEVICE_COUNT	2
-#define USB_SOP				0x23
 
-#define I2C_USE
-#define USB_USE
-#define i2cBufSize 11
+
+//#define I2C_TEST
+//#define USB_TEST
+//#define i2cBufSize 11
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
-
 DAC_HandleTypeDef hdac1;
-
 I2C_HandleTypeDef hi2c2;
-
 SPI_HandleTypeDef hspi1;
-
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim8;
-
 UART_HandleTypeDef huart3;
-
 /* USER CODE BEGIN PV */
 
 // htim1 DDS sleep timer mode manager
@@ -105,7 +87,7 @@ UART_HandleTypeDef huart3;
 // htim3 ADC DMA trigger event generator
 // htim4 SYNC1 cut event timer
 
-// htim8 1sec timer for debug bitrates&speed and tests
+// htim8 1sec timer for debug bit rates&speed and tests
 
 QDeviceTypeDef qDevice;
 
@@ -116,17 +98,17 @@ int packetReceiveCounter = 0;
 int bytesReceiveCounter = 0;
 int btnCounter = 0;
 
-int usbSendState = 0;
+int usbDataCollectingState = RESET;
+int usbDataHasCollected = RESET;
 
 uint8_t ethBankIsFullStatus;
 
-const char* cdc_tx_buf = "I would like to share my experience to create test application and measure the USB performance for both FS and HS with external ULPI PHY (USB3300) on STM32F4 MCU series. To do that Olimex STM32-H405 board and USB3300 module was used as hardware. Because of high speed the connection between them was made with very short wires and using default pin connection case with USB3300 reset pin connected to PA6. In addition to use default USB FS Device pin-out USB_P was re-wired from PC4 to PA9. For debugging USART\r\n";
-uint32_t TX_SIZE = 62;//sizeof(cdc_tx_buf);
-uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
+//uint8_t cdc_tx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
+//uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
 
 /* Buffer used for transmission */
-uint8_t aTxBuffer[] = "****I2C****";
-uint8_t aRxBuffer[i2cBufSize];
+//uint8_t aTxBuffer[] = "****I2C****";
+//uint8_t aRxBuffer[i2cBufSize];
 
 PUTCHAR_PROTOTYPE{
   HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
@@ -138,8 +120,8 @@ CDC_StateTypedef CDC_STATE = CDC_SEND;
 extern struct netif gnetif;
 extern USBH_HandleTypeDef hUsbHostHS;
 
-static int cdc_HandlesIndex = 0;
-CDC_HandleTypeDef cdc_Handles [DEVICE_COUNT];
+int cdc_HandleIndex = 0;
+CDC_HandleTypeDef cdc_Handles [LPC_MCU_SIZE];
 
 // when DMA conversion is completed, HAL_ADC_ConvCpltCallback function
 // will interrupt the processor. You can find this function in
@@ -164,6 +146,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 		ethBankIsFullStatus = SET;
 	}
 }
+
+// Interrupt Handling Function
+
 
 /* USER CODE END PV */
 
@@ -200,7 +185,7 @@ void MX_USB_HOST_Process(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-extern ApplicationTypeDef Appli_state;
+
   /* USER CODE END 1 */
 
   /* Enable I-Cache---------------------------------------------------------*/
@@ -245,11 +230,25 @@ extern ApplicationTypeDef Appli_state;
   MX_TIM2_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+// JUST FOR TESTS
+  qDevice.tomographConfig.cutRate = 100; //Hz
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  htim4.Init.Period = 1000/qDevice.tomographConfig.cutRate * 1000;
+  sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
+  sConfigOC.Pulse = htim4.Init.Period/2;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK) Error_Handler();
+  sConfigOC.Pulse = htim4.Init.Period/(qDevice.tomographConfig.stepCount * 2);
+  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK) Error_Handler();
+
 
   if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED) != HAL_OK) Error_Handler();
   /*##-3- Set DAC Channel1 DHR register ######################################*/
   if (HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 3000) != HAL_OK) Error_Handler();
   if (HAL_DAC_Start(&hdac1, DAC_CHANNEL_1) != HAL_OK)  Error_Handler();
+
 
   eMBTCPInit(qDevice.eth_params.modBusTcpPort);
   eMBEnable();
@@ -287,67 +286,41 @@ extern ApplicationTypeDef Appli_state;
 		memset(&qDevice.adcEntitie.measurementLines[0], 0, size);
 	}
 
-//    printf("MX_USB_HOST_Process duration = %d us\n\r", (int)__HAL_TIM_GET_COUNTER(&htim4));
-//    HAL_TIM_Base_Stop(&htim4);
-//    __HAL_TIM_SET_COUNTER(&htim4, 0);
-//    btnCounter++;
-//    if(btnCounter > BTN_DELAY){
-//    	btnCounter = 0;
-//	if (Appli_state == APPLICATION_READY){
-//		switch (CDC_STATE){
-//			case CDC_SEND:{
-//				status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, 3);
-//				CDC_STATE = CDC_BUSY;
-//				break;
-//			}
-//			case CDC_RECEIVE:{
-//				memset(cdc_rx_buf, 0, USBHS_MAX_BULK_PACKET_SIZE);
-//				status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, 62);
-//				CDC_STATE = CDC_BUSY;
-//			}
-//			default:  break;
-//			}
-////    	if(status == USBH_OK) status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
-////    	if(packetSendCounter != 0)	printf("send=%d.\n\r", packetSendCounter);
-//	}
-//    }
+    if(usbDataCollectingState == SET){
+		switch (CDC_STATE){
+			case CDC_SEND:
+//				hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandleIndex];
+//				cdc_HandleIndex++;
+//				if(cdc_HandleIndex == LPC_MCU_SIZE){
+//					usbDataCollectingState = RESET;
+//					usbDataHasCollected = SET;
+////					qDevice.lpcPacketStorage.pLpcBufToCollect =
+//				}
+				status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
 
-
-    if(usbSendState != 0){
-		if (Appli_state == APPLICATION_READY){
-			switch (CDC_STATE){
-				case CDC_SEND:{
-
-					hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
-					if(cdc_HandlesIndex >= DEVICE_COUNT){
-						cdc_HandlesIndex = 0;
-					}
-
-					status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
-					if(status == USBH_OK) {
-						CDC_STATE = CDC_BUSY;
-					}else{
-						printf("USBH_CDC_Transmit error %d", status);
-						CDC_STATE = CDC_SEND;
-					}
-					break;
+				if(status == USBH_OK) {
+					CDC_STATE = CDC_BUSY;
+				}else{
+					printf("USBH_CDC_Transmit error %d", status);
+					CDC_STATE = CDC_SEND;
 				}
-				case CDC_RECEIVE:{
-					memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
-
-					status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, USBHS_MAX_BULK_FS_PACKET_SIZE-2);
-					if(status == USBH_OK) {
-						CDC_STATE = CDC_BUSY;
-					}
-					else{
-						printf("USBH_CDC_Receive error %d", status);
-						CDC_STATE = CDC_SEND;
-					}
-					break;
+				break;
+			case CDC_RECEIVE:
+				memset(qDevice.lpcPacketStorage.pLpcBufToCollect, 0, sizeof(QLpcPacketStorage));
+				status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)qDevice.lpcPacketStorage.pLpcBufToCollect, USB_PACKET_SIZE);
+				if(status == USBH_OK) {
+					CDC_STATE = CDC_BUSY;
+				}else{
+					printf("USBH_CDC_Receive error %d", status);
+					CDC_STATE = CDC_SEND;
 				}
-				default:  break;
-			}
+				break;
+			default:  break;
 		}
+    }
+
+    if(usbDataHasCollected == SET){
+    	printf("Send Pack and send UDP packet to FlowPC\r\n");
     }
 
 
@@ -379,9 +352,9 @@ extern ApplicationTypeDef Appli_state;
 
 #endif
 
-#ifdef USB_USE
-    		usbSendState ^= 1;
-    		if(usbSendState != 0){
+#ifdef USB_TEST
+    		usbDataCollectingState ^= 1;
+    		if(usbDataCollectingState != 0){
     			printf("Button toggle event. Start USB sending.\r\n");
 				__HAL_TIM_SET_COUNTER(&htim8, 0);
 				HAL_TIM_Base_Start_IT(&htim8);
@@ -395,25 +368,7 @@ extern ApplicationTypeDef Appli_state;
     			bytesReceiveCounter = 0;
     		}
 #endif
-
-
-
-//    		__HAL_TIM_SET_COUNTER(&htim4, 0);
-//
-//    		int size = 1;
-//
-//    		hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
-//    		if(cdc_HandlesIndex >= DEVICE_COUNT){
-//    			cdc_HandlesIndex = 0;
-//    		}
-//
-//    		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, size);
-////    		printf("USB packet with size %d has been transmitted status %d.\n\r", size, status);
-//    		memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
-//    		if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
     	}
-//    }else{
-//    	HAL_GPIO_WritePin(ULPI_RES_GPIO_Port, ULPI_RES_Pin, RESET);
     }else{
     	btnCounter = 0;
     }
@@ -430,7 +385,7 @@ extern ApplicationTypeDef Appli_state;
    }
 #endif
 
-//		software reset if deviceResetFlag is set
+/*		Software reset if after flag loop count deviceResetFlag is set */
 	if(qDevice.deviceResetFlag != RESET){
 		qDevice.deviceResetFlag--;
 		if(qDevice.deviceResetFlag == RESET){
@@ -922,7 +877,7 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.Pulse = 50;
+  sConfigOC.Pulse = 62;
   if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
@@ -1117,15 +1072,21 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
-//	int duration = (int)__HAL_TIM_GET_COUNTER(&htim4);
-//	int size = sizeof(cdc_rx_buf);
-//	int address = ((CDC_HandleTypeDef*)(phost->pActiveClass->pData))->target.dev_address;
-//	printf("Got USB packet, duration=%d us; size=%d; address=%d %s\n\r", duration, size, address, cdc_rx_buf);
-//	if(size == USBHS_MAX_BULK_PACKET_SIZE)
+	/*		for DEBUG	*/
 	CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
 	bytesReceiveCounter += CDC_Handle->RxDataLength;
-	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_SEND;
 	packetReceiveCounter++;
+	/*END OF FOR DEUBG */
+
+//	memcpy(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdc_HandleIndex], CDC_Handle->pRxData, USB_PACKET_SIZE);
+
+	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_SEND; // send request to the next LPC
+	cdc_HandleIndex++;
+	hUsbHostHS.pActiveClass->pData = &cdc_Handles[(cdc_HandleIndex)%LPC_MCU_SIZE];
+	if(cdc_HandleIndex >= 2*LPC_MCU_SIZE){
+		cdc_HandleIndex = 0;
+	}
+	qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdc_HandleIndex];
 }
 /**
   * @brief  The function informs user that data have been received
@@ -1135,7 +1096,9 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 void USBH_CDC_TransmitCallback(USBH_HandleTypeDef *phost){
   /* Prevent unused argument(s) compilation warning */
 	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_RECEIVE;
+	/*		for DEBUG	*/
 	packetSendCounter++;
+	/*END OF FOR DEUBG */
 }
 /* USER CODE END 4 */
 

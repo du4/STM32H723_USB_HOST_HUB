@@ -46,6 +46,8 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 extern QDeviceTypeDef qDevice;
+extern CDC_StateTypedef CDC_STATE;
+uint32_t cutIndex=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,6 +61,8 @@ extern int packetSendCounter;
 extern int packetReceiveCounter;
 extern int bytesReceiveCounter;
 extern uint8_t cdc_tx_buf[];
+extern int usbDataCollectingState;
+extern int cdc_HandleIndex;
 //extern ApplicationTypeDef Appli_state;
 /* USER CODE END 0 */
 
@@ -231,12 +235,12 @@ void DMA1_Stream0_IRQHandler(void)
 void TIM1_UP_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM1_UP_IRQn 0 */
-	if(__HAL_TIM_GET_FLAG(&htim4, TIM_FLAG_UPDATE) != RESET){
-		__HAL_TIM_DISABLE(&htim4);
+	if(__HAL_TIM_GET_FLAG(&htim1, TIM_FLAG_UPDATE) != RESET){
+		__HAL_TIM_DISABLE(&htim1);
 		qDevice.main_cycle_counter = 0;
 		DDS_Sleep_Timer->CNT = 0;
 		DDS_Power_Control(DDS_POWER_DOWN);
-		__HAL_TIM_CLEAR_IT(&htim4, TIM_IT_UPDATE);
+		__HAL_TIM_CLEAR_IT(&htim1, TIM_IT_UPDATE);
 	}
   /* USER CODE END TIM1_UP_IRQn 0 */
   HAL_TIM_IRQHandler(&htim1);
@@ -265,9 +269,17 @@ void TIM2_IRQHandler(void)
 void TIM4_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM4_IRQn 0 */
-	printf("Cut event at %d us", htim2.Instance->CNT);
+//	if(usbSendState == SET){
+//		printf("Got cut event while previews packet hasn't send.");
+//	}
+	/*	FOR DEBUG	*/
+	cutIndex++;
+	/*	END OF FOR DEBUG	*/
+
+	usbDataCollectingState = SET;
+	CDC_STATE = CDC_SEND;
   /* USER CODE END TIM4_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim4);
+	HAL_TIM_IRQHandler(&htim4);
   /* USER CODE BEGIN TIM4_IRQn 1 */
 
   /* USER CODE END TIM4_IRQn 1 */
@@ -279,19 +291,13 @@ void TIM4_IRQHandler(void)
 void TIM8_UP_TIM13_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 0 */
-//	packetToSend[5] = 0x20;
-//	packetToSend[4] = 0x30 + packetCounter%10;
-//	packetToSend[3] = 0x30 + (packetCounter/10)%10;
-//	packetToSend[2] = 0x30 + (packetCounter/100)%10;
-//	packetToSend[1] = 0x30 + (packetCounter/1000)%10;
-//	packetToSend[0] = 0x30 + (packetCounter/10000)%10;
 
-//	if(packetSendCounter != 0)
+	printf("cnt=%d tick %d us\r\n",cutIndex, htim2.Instance->CNT);
+
 	HAL_GPIO_TogglePin(RedLed_GPIO_Port, RedLed_Pin);
 
-//	if(Appli_state == APPLICATION_READY){
-	printf("sPc=%d; rPc=%d rB=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
-//	}
+
+//	printf("sPc=%d; rPc=%d rB=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
 	packetReceiveCounter=0;
 	packetSendCounter=0;
 	bytesReceiveCounter=0;
