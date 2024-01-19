@@ -114,7 +114,7 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id){
 
   case HOST_USER_CLASS_ACTIVE:
   usb_stack_state = APPLICATION_READY;
-  CDC_STATE = CDC_SEND;
+  CDC_STATE = CDC_BUSY;
   break;
 
   case HOST_USER_CONNECTION:

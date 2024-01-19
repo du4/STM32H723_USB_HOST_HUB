@@ -105,7 +105,6 @@ uint8_t ethBankIsFullStatus;
 
 //uint8_t cdc_tx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
 //uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
-
 /* Buffer used for transmission */
 //uint8_t aTxBuffer[] = "****I2C****";
 //uint8_t aRxBuffer[i2cBufSize];
@@ -115,12 +114,12 @@ PUTCHAR_PROTOTYPE{
   return ch;
 }
 
-CDC_StateTypedef CDC_STATE = CDC_SEND;
+CDC_StateTypedef CDC_STATE = CDC_BUSY;
 
 extern struct netif gnetif;
 extern USBH_HandleTypeDef hUsbHostHS;
 
-int cdc_HandleIndex = 0;
+int cdcDeviceBufferIndex = 0;
 CDC_HandleTypeDef cdc_Handles [LPC_MCU_SIZE];
 
 // when DMA conversion is completed, HAL_ADC_ConvCpltCallback function
@@ -138,7 +137,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 	}else{
 		for (int i = 0; i < ADC_LINES_SIZE; ++i) {
 			QAdcMeasuremenLine* line = &qDevice.adcEntitie.measurementLines[i];
-			line->tick = (float32_t)(qDevice.qMeasurer.periodMs/qDevice.adcEntitie.settings.periodMs) * i;
+			line->tick = (float32_t)(qDevice.qMeasurer.periodMs/qDevice.adcEntitie.settings.periodMs) * (i+1);
 			for(int j = 0 ; j < ADC_CHANNEL_SIZE ; j++){
 				line -> measurements[j] = /*qDevice.adcEntitie.pCoef */ qDevice.adcEntitie.adcValues[i*2 + j];
 			}
@@ -232,9 +231,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
 // JUST FOR TESTS
   qDevice.tomographConfig.cutRate = 100; //Hz
-
+  htim4.Instance->ARR = 1000/qDevice.tomographConfig.cutRate * 1000;
+  htim4.Init.Period = htim4.Instance->ARR;
   TIM_OC_InitTypeDef sConfigOC = {0};
-  htim4.Init.Period = 1000/qDevice.tomographConfig.cutRate * 1000;
   sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
   sConfigOC.Pulse = htim4.Init.Period/2;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
@@ -286,41 +285,33 @@ int main(void)
 		memset(&qDevice.adcEntitie.measurementLines[0], 0, size);
 	}
 
-    if(usbDataCollectingState == SET){
-		switch (CDC_STATE){
-			case CDC_SEND:
-//				hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandleIndex];
-//				cdc_HandleIndex++;
-//				if(cdc_HandleIndex == LPC_MCU_SIZE){
-//					usbDataCollectingState = RESET;
-//					usbDataHasCollected = SET;
-////					qDevice.lpcPacketStorage.pLpcBufToCollect =
-//				}
-				status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
+	switch (CDC_STATE){
+		case CDC_SEND:
+			status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
+			if(status == USBH_OK) {
+				CDC_STATE = CDC_BUSY;
+			}else{
+				printf("USBH_CDC_Transmit error %d\r\n", status);
+				CDC_STATE = CDC_SEND;
+			}
+			break;
+		case CDC_RECEIVE:
+			status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)qDevice.lpcPacketStorage.pLpcBufToCollect, USB_PACKET_SIZE);
+			if(status == USBH_OK) {
+				CDC_STATE = CDC_BUSY;
+			}else{
+				printf("USBH_CDC_Receive error %d\r\n", status);
+				CDC_STATE = CDC_SEND;
+			}
+			break;
+		default:  break;
+	}
 
-				if(status == USBH_OK) {
-					CDC_STATE = CDC_BUSY;
-				}else{
-					printf("USBH_CDC_Transmit error %d", status);
-					CDC_STATE = CDC_SEND;
-				}
-				break;
-			case CDC_RECEIVE:
-				memset(qDevice.lpcPacketStorage.pLpcBufToCollect, 0, sizeof(QLpcPacketStorage));
-				status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)qDevice.lpcPacketStorage.pLpcBufToCollect, USB_PACKET_SIZE);
-				if(status == USBH_OK) {
-					CDC_STATE = CDC_BUSY;
-				}else{
-					printf("USBH_CDC_Receive error %d", status);
-					CDC_STATE = CDC_SEND;
-				}
-				break;
-			default:  break;
-		}
-    }
 
     if(usbDataHasCollected == SET){
-    	printf("Send Pack and send UDP packet to FlowPC\r\n");
+    	packCutPacket(qDevice.lpcPacketStorage.pLpcBufToSend, LPC_MCU_SIZE);
+    	usbDataHasCollected = RESET;
+//    	printf("Send Pack and send UDP packet to FlowPC\r\n");
     }
 
 
@@ -1072,31 +1063,37 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
-	/*		for DEBUG	*/
-	CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
-	bytesReceiveCounter += CDC_Handle->RxDataLength;
-	packetReceiveCounter++;
-	/*END OF FOR DEUBG */
+	if (CDC_STATE == CDC_BUSY){
+		/*	 DEBUG section	*/
+		CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
+		bytesReceiveCounter += CDC_Handle->RxDataLength;
+		packetReceiveCounter++;
+		/*END OF FOR DEUBG */
 
-//	memcpy(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdc_HandleIndex], CDC_Handle->pRxData, USB_PACKET_SIZE);
-
-	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_SEND; // send request to the next LPC
-	cdc_HandleIndex++;
-	hUsbHostHS.pActiveClass->pData = &cdc_Handles[(cdc_HandleIndex)%LPC_MCU_SIZE];
-	if(cdc_HandleIndex >= 2*LPC_MCU_SIZE){
-		cdc_HandleIndex = 0;
+		cdcDeviceBufferIndex++;
+		if(cdcDeviceBufferIndex < 2*LPC_MCU_SIZE){
+			hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdcDeviceBufferIndex % LPC_MCU_SIZE];
+			memcpy(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex], CDC_Handle->pRxData, USB_PACKET_SIZE);
+			qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex];
+			if((cdcDeviceBufferIndex % LPC_MCU_SIZE) != 0)	CDC_STATE = CDC_SEND; // send request to the next LPC
+			else{
+				qDevice.lpcPacketStorage.pLpcBufToSend = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex-LPC_MCU_SIZE];
+				usbDataHasCollected = SET;
+			}
+		}else{
+			cdcDeviceBufferIndex = 0;
+		}
 	}
-	qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdc_HandleIndex];
 }
 /**
   * @brief  The function informs user that data have been received
-  *  @param  pdev: Selected device
+  *  @param  phost: host handle typedef pointer
   * @retval None
   */
 void USBH_CDC_TransmitCallback(USBH_HandleTypeDef *phost){
   /* Prevent unused argument(s) compilation warning */
 	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_RECEIVE;
-	/*		for DEBUG	*/
+	/*	DEBUG section	*/
 	packetSendCounter++;
 	/*END OF FOR DEUBG */
 }

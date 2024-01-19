@@ -62,7 +62,7 @@ extern int packetReceiveCounter;
 extern int bytesReceiveCounter;
 extern uint8_t cdc_tx_buf[];
 extern int usbDataCollectingState;
-extern int cdc_HandleIndex;
+extern int cdcDeviceBufferIndex;
 //extern ApplicationTypeDef Appli_state;
 /* USER CODE END 0 */
 
@@ -269,15 +269,11 @@ void TIM2_IRQHandler(void)
 void TIM4_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM4_IRQn 0 */
-//	if(usbSendState == SET){
-//		printf("Got cut event while previews packet hasn't send.");
-//	}
+	CDC_STATE = CDC_SEND; // send request to the next LPC
 	/*	FOR DEBUG	*/
 	cutIndex++;
-	/*	END OF FOR DEBUG	*/
+	/*	END OF FOR DEBUG */
 
-	usbDataCollectingState = SET;
-	CDC_STATE = CDC_SEND;
   /* USER CODE END TIM4_IRQn 0 */
 	HAL_TIM_IRQHandler(&htim4);
   /* USER CODE BEGIN TIM4_IRQn 1 */
@@ -297,7 +293,7 @@ void TIM8_UP_TIM13_IRQHandler(void)
 	HAL_GPIO_TogglePin(RedLed_GPIO_Port, RedLed_Pin);
 
 
-//	printf("sPc=%d; rPc=%d rB=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
+	printf("sPc=%d; rPc=%d rB=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
 	packetReceiveCounter=0;
 	packetSendCounter=0;
 	bytesReceiveCounter=0;
