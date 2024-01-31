@@ -71,15 +71,23 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
+
 DAC_HandleTypeDef hdac1;
+
 I2C_HandleTypeDef hi2c2;
+
 SPI_HandleTypeDef hspi1;
+
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim8;
+TIM_HandleTypeDef htim12;
+
 UART_HandleTypeDef huart3;
+
 /* USER CODE BEGIN PV */
 
 // htim1 DDS sleep timer mode manager
@@ -102,6 +110,8 @@ int usbDataCollectingState = RESET;
 int usbDataHasCollected = RESET;
 
 uint8_t ethBankIsFullStatus;
+
+uint32_t cutIndex=0;
 
 //uint8_t cdc_tx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
 //uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
@@ -167,6 +177,8 @@ static void MX_TIM8_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM12_Init(void);
+static void MX_TIM5_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
@@ -228,20 +240,23 @@ int main(void)
   MX_USART3_UART_Init();
   MX_TIM2_Init();
   MX_TIM1_Init();
+  MX_TIM12_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 // JUST FOR TESTS
-  qDevice.tomographConfig.cutRate = 100; //Hz
-  htim4.Instance->ARR = 1000/qDevice.tomographConfig.cutRate * 1000;
-  htim4.Init.Period = htim4.Instance->ARR;
-  TIM_OC_InitTypeDef sConfigOC = {0};
-  sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
-  sConfigOC.Pulse = htim4.Init.Period/2;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK) Error_Handler();
-  sConfigOC.Pulse = htim4.Init.Period/(qDevice.tomographConfig.stepCount * 2);
-  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK) Error_Handler();
+//  qDevice.tomographConfig.cutRate = 100; //Hz
+//  htim4.Instance->ARR = 1000/qDevice.tomographConfig.cutRate * 1000;
+//  htim4.Init.Period = htim4.Instance->ARR;
+//  TIM_OC_InitTypeDef sConfigOC = {0};
+//  sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
+//  sConfigOC.Pulse = htim4.Init.Period/2;
+//  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
+//  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+//  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK) Error_Handler();
+//  sConfigOC.Pulse = htim4.Init.Period/(qDevice.tomographConfig.stepCount * 2);
+//  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK) Error_Handler();
 
+  HAL_GPIO_WritePin(GPIOB, ULPI_RES_Pin, GPIO_PIN_RESET);
 
   if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED) != HAL_OK) Error_Handler();
   /*##-3- Set DAC Channel1 DHR register ######################################*/
@@ -285,14 +300,16 @@ int main(void)
 		memset(&qDevice.adcEntitie.measurementLines[0], 0, size);
 	}
 
+//	HAL_GPIO_TogglePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin);
+
 	switch (CDC_STATE){
 		case CDC_SEND:
+			HAL_GPIO_WritePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin, GPIO_PIN_SET);
 			status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
 			if(status == USBH_OK) {
 				CDC_STATE = CDC_BUSY;
 			}else{
 				printf("USBH_CDC_Transmit error %d\r\n", status);
-				CDC_STATE = CDC_SEND;
 			}
 			break;
 		case CDC_RECEIVE:
@@ -301,7 +318,6 @@ int main(void)
 				CDC_STATE = CDC_BUSY;
 			}else{
 				printf("USBH_CDC_Receive error %d\r\n", status);
-				CDC_STATE = CDC_SEND;
 			}
 			break;
 		default:  break;
@@ -315,54 +331,55 @@ int main(void)
     }
 
 
-    if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
-    	btnCounter++;
-    	if(btnCounter >= BTN_DELAY){
-			btnCounter = 0;
-    		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
-
-#ifdef I2C_USE
-		  printf("HAL_I2C_Master_Transmit.\r\n");
-		  HAL_StatusTypeDef hal_status = HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t*)aTxBuffer, i2cBufSize, 8000);
-/* Error_Handler() function is called when Timeout error occurs.
-   When Acknowledge failure occurs (Slave don't acknowledge its address)
-   Master restarts communication
-*/
-			if (hal_status != HAL_OK){
-				  printf("hal_status=%d\tHAL_I2C_GetError=%d.\r\n", hal_status, (int)HAL_I2C_GetError(&hi2c2));
-			}else{
-				 HAL_Delay(50);
-				 printf("HAL_I2C_Master_Receive.\r\n");
-				 hal_status = HAL_I2C_Master_Receive(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t *)aRxBuffer, i2cBufSize, 8000);
-				 if (hal_status != HAL_OK){
-					 printf("I2C Reception error %d.\r\n", (int)HAL_I2C_GetError(&hi2c2));
-				 }else{
-					 printf("Transfer in reception process is correct.\r\n");
-				 }
-			}
-
-#endif
-
-#ifdef USB_TEST
-    		usbDataCollectingState ^= 1;
-    		if(usbDataCollectingState != 0){
-    			printf("Button toggle event. Start USB sending.\r\n");
-				__HAL_TIM_SET_COUNTER(&htim8, 0);
-				HAL_TIM_Base_Start_IT(&htim8);
-				CDC_STATE = CDC_SEND;
-    		}else{
-    			HAL_TIM_Base_Stop_IT(&htim8);
-    			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
-    			printf("Button toggle event. Stop USB sending.\r\n");
-    			packetSendCounter = 0;
-    			packetReceiveCounter = 0;
-    			bytesReceiveCounter = 0;
-    		}
-#endif
-    	}
-    }else{
-    	btnCounter = 0;
-    }
+//    if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
+//    	btnCounter++;
+//    	if(btnCounter >= BTN_DELAY){
+//    		startStreamMeasuering();
+//			btnCounter = 0;
+//    		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
+//
+//#ifdef I2C_USE
+//		  printf("HAL_I2C_Master_Transmit.\r\n");
+//		  HAL_StatusTypeDef hal_status = HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t*)aTxBuffer, i2cBufSize, 8000);
+///* Error_Handler() function is called when Timeout error occurs.
+//   When Acknowledge failure occurs (Slave don't acknowledge its address)
+//   Master restarts communication
+//*/
+//			if (hal_status != HAL_OK){
+//				  printf("hal_status=%d\tHAL_I2C_GetError=%d.\r\n", hal_status, (int)HAL_I2C_GetError(&hi2c2));
+//			}else{
+//				 HAL_Delay(50);
+//				 printf("HAL_I2C_Master_Receive.\r\n");
+//				 hal_status = HAL_I2C_Master_Receive(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t *)aRxBuffer, i2cBufSize, 8000);
+//				 if (hal_status != HAL_OK){
+//					 printf("I2C Reception error %d.\r\n", (int)HAL_I2C_GetError(&hi2c2));
+//				 }else{
+//					 printf("Transfer in reception process is correct.\r\n");
+//				 }
+//			}
+//
+//#endif
+//
+//#ifdef USB_TEST
+//    		usbDataCollectingState ^= 1;
+//    		if(usbDataCollectingState != 0){
+//    			printf("Button toggle event. Start USB sending.\r\n");
+//				__HAL_TIM_SET_COUNTER(&htim8, 0);
+//				HAL_TIM_Base_Start_IT(&htim8);
+//				CDC_STATE = CDC_SEND;
+//    		}else{
+//    			HAL_TIM_Base_Stop_IT(&htim8);
+//    			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
+//    			printf("Button toggle event. Stop USB sending.\r\n");
+//    			packetSendCounter = 0;
+//    			packetReceiveCounter = 0;
+//    			bytesReceiveCounter = 0;
+//    		}
+//#endif
+//    	}
+//    }else{
+//    	btnCounter = 0;
+//    }
 
 	 // stop continuous measuring if don't get continue measuring
 #ifdef uninterruptableMeasurementWatchdogInterval
@@ -685,9 +702,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 27499;
+  htim1.Init.Prescaler = 27500-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 50000;
+  htim1.Init.Period = 50000-1;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -732,7 +749,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 274;
+  htim2.Init.Prescaler = 275-1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -778,9 +795,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 27499;
+  htim3.Init.Prescaler = 27500;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 1000;
+  htim3.Init.Period = 1000-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -836,9 +853,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 274;
+  htim4.Init.Prescaler = 275-1;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 1000;
+  htim4.Init.Period = 1000-1;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -850,7 +867,7 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_OC_Init(&htim4) != HAL_OK)
+  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -860,16 +877,11 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 500;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.Pulse = 62;
-  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -877,6 +889,65 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 2 */
   HAL_TIM_MspPostInit(&htim4);
+
+}
+
+/**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 275-1;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 62;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 30;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim5, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
+  HAL_TIM_MspPostInit(&htim5);
 
 }
 
@@ -899,9 +970,9 @@ static void MX_TIM8_Init(void)
 
   /* USER CODE END TIM8_Init 1 */
   htim8.Instance = TIM8;
-  htim8.Init.Prescaler = 27499;
+  htim8.Init.Prescaler = 27500-1;
   htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim8.Init.Period = 10000;
+  htim8.Init.Period = 10000-1;
   htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim8.Init.RepetitionCounter = 0;
   htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -924,6 +995,52 @@ static void MX_TIM8_Init(void)
   /* USER CODE BEGIN TIM8_Init 2 */
 
   /* USER CODE END TIM8_Init 2 */
+
+}
+
+/**
+  * @brief TIM12 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM12_Init(void)
+{
+
+  /* USER CODE BEGIN TIM12_Init 0 */
+
+  /* USER CODE END TIM12_Init 0 */
+
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM12_Init 1 */
+
+  /* USER CODE END TIM12_Init 1 */
+  htim12.Instance = TIM12;
+  htim12.Init.Prescaler = 0;
+  htim12.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim12.Init.Period = 7;
+  htim12.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim12.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim12) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+  sSlaveConfig.InputTrigger = TIM_TS_ITR1;
+  if (HAL_TIM_SlaveConfigSynchro(&htim12, &sSlaveConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim12, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM12_Init 2 */
+
+  /* USER CODE END TIM12_Init 2 */
 
 }
 
@@ -1016,10 +1133,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(ULPI_RES_GPIO_Port, ULPI_RES_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, RedLed_Pin|CUT_EVENT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_FS_PWR_EN_GPIO_Port, USB_FS_PWR_EN_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, SYNC1_Pin|SYNC2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(YellowLed_GPIO_Port, YellowLed_Pin, GPIO_PIN_RESET);
@@ -1050,6 +1170,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(USB_FS_PWR_EN_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : SYNC1_Pin SYNC2_Pin */
+  GPIO_InitStruct.Pin = SYNC1_Pin|SYNC2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : CUT_EVENT_Pin */
+  GPIO_InitStruct.Pin = CUT_EVENT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(CUT_EVENT_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : YellowLed_Pin */
   GPIO_InitStruct.Pin = YellowLed_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -1075,13 +1209,18 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 			hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdcDeviceBufferIndex % LPC_MCU_SIZE];
 			memcpy(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex], CDC_Handle->pRxData, USB_PACKET_SIZE);
 			qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex];
-			if((cdcDeviceBufferIndex % LPC_MCU_SIZE) != 0)	CDC_STATE = CDC_SEND; // send request to the next LPC
-			else{
+			if((cdcDeviceBufferIndex % LPC_MCU_SIZE) == 0){
 				qDevice.lpcPacketStorage.pLpcBufToSend = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex-LPC_MCU_SIZE];
 				usbDataHasCollected = SET;
 			}
 		}else{
 			cdcDeviceBufferIndex = 0;
+		}
+
+		/* FOR DEBUG */
+		HAL_GPIO_WritePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin, GPIO_PIN_RESET);
+		if(qDevice.qMeasurer.streamMeasurementStatus == DISABLE){
+			printf("cut=%d sPc=%d; rPc=%d rB=%d tick=%d\n\r",cutIndex, packetSendCounter, packetReceiveCounter, bytesReceiveCounter,htim2.Instance->CNT);
 		}
 	}
 }

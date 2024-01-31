@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include "device.h"
+#include "measurer.h"
 #include "usb_host.h"
 #include "dds.h"
 /* USER CODE END Includes */
@@ -47,7 +48,7 @@
 /* USER CODE BEGIN PV */
 extern QDeviceTypeDef qDevice;
 extern CDC_StateTypedef CDC_STATE;
-uint32_t cutIndex=0;
+extern uint32_t cutIndex;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -57,9 +58,8 @@ uint32_t cutIndex=0;
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-extern int packetSendCounter;
-extern int packetReceiveCounter;
-extern int bytesReceiveCounter;
+extern int packetSendCounter, packetReceiveCounter, bytesReceiveCounter;
+
 extern uint8_t cdc_tx_buf[];
 extern int usbDataCollectingState;
 extern int cdcDeviceBufferIndex;
@@ -73,8 +73,9 @@ extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim8;
+extern TIM_HandleTypeDef htim12;
 /* USER CODE BEGIN EV */
-
+extern TIM_HandleTypeDef htim5;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -269,16 +270,53 @@ void TIM2_IRQHandler(void)
 void TIM4_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM4_IRQn 0 */
-	CDC_STATE = CDC_SEND; // send request to the next LPC
+	if(__HAL_TIM_GET_FLAG(&htim4, TIM_FLAG_UPDATE) != RESET){
+		cutIndex++;
+		if(cutIndex < 5){
+	//		__HAL_TIM_SET_COUNTER(&htim5, 0);
+			HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
+		}else if (cutIndex == 5){
+			HAL_TIM_PWM_Stop(&htim5, TIM_CHANNEL_1);
+			HAL_TIM_Base_Stop_IT(&htim12);
+			stopStreamMeasuering();
+		}
+//		else{
+//			TIM_CCxChannelCmd(htim4.Instance, TIM_CHANNEL_3, TIM_CCx_DISABLE);
+//			HAL_TIM_PWM_Stop(&htim4, TIM_CHANNEL_3);
+//			stopStreamMeasuering();
+//			cutIndex--;
+//		}
+		CDC_STATE = CDC_SEND; // send request to the next LPC
+		__HAL_TIM_CLEAR_IT(&htim4, TIM_IT_UPDATE);
 	/*	FOR DEBUG	*/
-	cutIndex++;
-	/*	END OF FOR DEBUG */
 
+	/*	END OF FOR DEBUG */
+	}
   /* USER CODE END TIM4_IRQn 0 */
-	HAL_TIM_IRQHandler(&htim4);
+//  HAL_TIM_IRQHandler(&htim4);
   /* USER CODE BEGIN TIM4_IRQn 1 */
 
   /* USER CODE END TIM4_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM8 break interrupt and TIM12 global interrupt.
+  */
+void TIM8_BRK_TIM12_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM8_BRK_TIM12_IRQn 0 */
+//	if(__HAL_TIM_GET_FLAG(&htim12, TIM_FLAG_UPDATE) != RESET){
+//		HAL_TIM_Base_Stop(&htim5);
+		HAL_TIM_PWM_Stop(&htim5, TIM_CHANNEL_1);
+//		__HAL_TIM_SET_COUNTER(&htim12,0);
+//	}
+	__HAL_TIM_CLEAR_IT(&htim12, TIM_IT_UPDATE);
+  /* USER CODE END TIM8_BRK_TIM12_IRQn 0 */
+//  HAL_TIM_IRQHandler(&htim8);
+//  HAL_TIM_IRQHandler(&htim12);
+  /* USER CODE BEGIN TIM8_BRK_TIM12_IRQn 1 */
+
+  /* USER CODE END TIM8_BRK_TIM12_IRQn 1 */
 }
 
 /**
@@ -287,17 +325,12 @@ void TIM4_IRQHandler(void)
 void TIM8_UP_TIM13_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 0 */
-
-	printf("cnt=%d tick %d us\r\n",cutIndex, htim2.Instance->CNT);
-
+//	printf("cnt=%d tick %d us\r\n",cutIndex, htim2.Instance->CNT);
 	HAL_GPIO_TogglePin(RedLed_GPIO_Port, RedLed_Pin);
-
-
-	printf("sPc=%d; rPc=%d rB=%d\n\r", packetSendCounter, packetReceiveCounter, bytesReceiveCounter);
+	printf("cut=%d sPc=%d; rPc=%d rB=%d tick=%d\n\r",cutIndex, packetSendCounter, packetReceiveCounter, bytesReceiveCounter,htim2.Instance->CNT);
 	packetReceiveCounter=0;
 	packetSendCounter=0;
 	bytesReceiveCounter=0;
-
   /* USER CODE END TIM8_UP_TIM13_IRQn 0 */
   HAL_TIM_IRQHandler(&htim8);
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 1 */
