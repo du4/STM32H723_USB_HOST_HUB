@@ -1212,6 +1212,8 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 			if((cdcDeviceBufferIndex % LPC_MCU_SIZE) == 0){
 				qDevice.lpcPacketStorage.pLpcBufToSend = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex-LPC_MCU_SIZE];
 				usbDataHasCollected = SET;
+			}else{
+				CDC_STATE = CDC_SEND;
 			}
 		}else{
 			cdcDeviceBufferIndex = 0;
@@ -1219,7 +1221,7 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 
 		/* FOR DEBUG */
 		HAL_GPIO_WritePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin, GPIO_PIN_RESET);
-		if(qDevice.qMeasurer.streamMeasurementStatus == DISABLE){
+		if((qDevice.qMeasurer.streamMeasurementStatus == DISABLE) && (usbDataHasCollected == SET)){
 			printf("cut=%d sPc=%d; rPc=%d rB=%d tick=%d\n\r",cutIndex, packetSendCounter, packetReceiveCounter, bytesReceiveCounter,htim2.Instance->CNT);
 		}
 	}
@@ -1232,6 +1234,7 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 void USBH_CDC_TransmitCallback(USBH_HandleTypeDef *phost){
   /* Prevent unused argument(s) compilation warning */
 	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_RECEIVE;
+
 	/*	DEBUG section	*/
 	packetSendCounter++;
 	/*END OF FOR DEUBG */

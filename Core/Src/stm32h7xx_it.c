@@ -276,7 +276,6 @@ void TIM4_IRQHandler(void)
 	//		__HAL_TIM_SET_COUNTER(&htim5, 0);
 			HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
 		}else if (cutIndex == 5){
-			HAL_TIM_PWM_Stop(&htim5, TIM_CHANNEL_1);
 			HAL_TIM_Base_Stop_IT(&htim12);
 			stopStreamMeasuering();
 		}
