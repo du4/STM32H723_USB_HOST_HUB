@@ -29,4 +29,16 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>qDevice</name>
+			<type>2</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Flow-meter-commutator/qDevice</locationURI>
+		</link>
+		<link>
+			<name>Middlewares/Third_Party/LwIP/src/apps/udp_client</name>
+			<type>2</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Flow-meter-commutator/Middlewares/Third_Party/LwIP/src/apps/udp_client</locationURI>
+		</link>
+	</linkedResources>
 </projectDescription>
