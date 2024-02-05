@@ -753,7 +753,7 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 					*(usRegHoldingBuf++) = *(pointer++);
 					break;
 				case hDeviceType: *(usRegHoldingBuf++) = MSI_TYPE; break;
-				case hLpcCount:  *(usRegHoldingBuf++) = LPC_ECT_MCU_SIZE; break;
+				case hLpcCount:  *(usRegHoldingBuf++) = LPC_MCU_SIZE; break;
 			}
 		}
 

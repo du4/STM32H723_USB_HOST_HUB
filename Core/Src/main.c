@@ -109,6 +109,8 @@ int btnCounter = 0;
 int usbDataCollectingState = RESET;
 int usbDataHasCollected = RESET;
 
+int udpTomographPacketHasCollected = RESET;
+
 uint8_t ethBankIsFullStatus;
 
 uint32_t cutIndex=0;
@@ -222,7 +224,7 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
   initDevice(&qDevice);
-  initTomograph(&qDevice.tomographConfig, &qDevice.qMeasurer.measuringParameters, &qDevice.muxTable, (QLpcElectodeCoefs*)null);
+  initTomograph(&qDevice.lpcMcus[0], &qDevice.tomographConfig, &qDevice.qMeasurer.measuringParameters, &qDevice.muxTable, (QLpcElectodeCoefs*)null);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -325,9 +327,23 @@ int main(void)
 
 
     if(usbDataHasCollected == SET){
-    	packCutPacket(qDevice.lpcPacketStorage.pLpcBufToSend, LPC_MCU_SIZE);
+    	packCutPacket(qDevice.udpPacketPointer, qDevice.lpcPacketStorage.pLpcBufToSend, LPC_MCU_SIZE);
     	usbDataHasCollected = RESET;
-//    	printf("Send Pack and send UDP packet to FlowPC\r\n");
+    	qDevice.udpPacketPointer++;
+    	if(qDevice.udpPacketPointer == &qDevice.udpPacketStorage[TOMOGRAPH_UDP_CUTS_PER_PACKET] ||
+    			qDevice.udpPacketPointer == &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
+    		udpTomographPacketHasCollected = SET;
+    	}
+    }
+
+    if(udpTomographPacketHasCollected == SET){
+    	udpTomographPacketHasCollected = RESET;
+    	size_t size = sizeof(QTomographUdpCut)*TOMOGRAPH_UDP_CUTS_PER_PACKET;
+    	udpClientSend(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET, size);
+    	memset(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET, 0, size);
+    	if(qDevice.udpPacketPointer == &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
+			qDevice.udpPacketPointer = &qDevice.udpPacketStorage[0];
+		}
     }
 
 
@@ -1221,7 +1237,7 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 
 		/* FOR DEBUG */
 		HAL_GPIO_WritePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin, GPIO_PIN_RESET);
-		if((qDevice.qMeasurer.streamMeasurementStatus == DISABLE) && (usbDataHasCollected == SET)){
+		if(usbDataHasCollected == SET){
 			printf("cut=%d sPc=%d; rPc=%d rB=%d tick=%d\n\r",cutIndex, packetSendCounter, packetReceiveCounter, bytesReceiveCounter,htim2.Instance->CNT);
 		}
 	}
