@@ -69,6 +69,12 @@ void Error_Handler(void);
 #define RedLed_GPIO_Port GPIOB
 #define USB_FS_PWR_EN_Pin GPIO_PIN_10
 #define USB_FS_PWR_EN_GPIO_Port GPIOD
+#define SYNC1_Pin GPIO_PIN_14
+#define SYNC1_GPIO_Port GPIOD
+#define SYNC2_Pin GPIO_PIN_15
+#define SYNC2_GPIO_Port GPIOD
+#define CUT_EVENT_Pin GPIO_PIN_5
+#define CUT_EVENT_GPIO_Port GPIOB
 #define YellowLed_Pin GPIO_PIN_1
 #define YellowLed_GPIO_Port GPIOE
 

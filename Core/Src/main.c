@@ -56,28 +56,16 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define USB_FS	0
-#define USB_HS	1
 
-#define USBHS_MAX_BULK_HS_PACKET_SIZE	512
-#define USBHS_MAX_BULK_FS_PACKET_SIZE	64
-
-#define USB_SPEED	USB_FS
-
-#if (USB_SPEED == USB_FS)
-	#define USBHS_MAX_BULK_PACKET_SIZE USBHS_MAX_BULK_FS_PACKET_SIZE
-#else
-	#define USBHS_MAX_BULK_PACKET_SIZE USBHS_MAX_BULK_HS_PACKET_SIZE
-#endif
 
 #define BTN_DELAY	2000000
 
 #define DEVICE_COUNT	2
-#define USB_SOP				0x23
 
-#define I2C_USE
-#define USB_USE
-#define i2cBufSize 11
+
+//#define I2C_TEST
+//#define USB_TEST
+//#define i2cBufSize 11
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -94,7 +82,9 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim8;
+TIM_HandleTypeDef htim12;
 
 UART_HandleTypeDef huart3;
 
@@ -105,7 +95,7 @@ UART_HandleTypeDef huart3;
 // htim3 ADC DMA trigger event generator
 // htim4 SYNC1 cut event timer
 
-// htim8 1sec timer for debug bitrates&speed and tests
+// htim8 1sec timer for debug bit rates&speed and tests
 
 QDeviceTypeDef qDevice;
 
@@ -116,30 +106,31 @@ int packetReceiveCounter = 0;
 int bytesReceiveCounter = 0;
 int btnCounter = 0;
 
-int usbSendState = 0;
+int usbDataCollectingState = RESET;
+int usbDataHasCollected = RESET;
 
 uint8_t ethBankIsFullStatus;
 
-const char* cdc_tx_buf = "I would like to share my experience to create test application and measure the USB performance for both FS and HS with external ULPI PHY (USB3300) on STM32F4 MCU series. To do that Olimex STM32-H405 board and USB3300 module was used as hardware. Because of high speed the connection between them was made with very short wires and using default pin connection case with USB3300 reset pin connected to PA6. In addition to use default USB FS Device pin-out USB_P was re-wired from PC4 to PA9. For debugging USART\r\n";
-uint32_t TX_SIZE = 62;//sizeof(cdc_tx_buf);
-uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
+uint32_t cutIndex=0;
 
+//uint8_t cdc_tx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
+//uint8_t cdc_rx_buf[USBHS_MAX_BULK_FS_PACKET_SIZE];
 /* Buffer used for transmission */
-uint8_t aTxBuffer[] = "****I2C****";
-uint8_t aRxBuffer[i2cBufSize];
+//uint8_t aTxBuffer[] = "****I2C****";
+//uint8_t aRxBuffer[i2cBufSize];
 
 PUTCHAR_PROTOTYPE{
   HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
   return ch;
 }
 
-CDC_StateTypedef CDC_STATE = CDC_SEND;
+CDC_StateTypedef CDC_STATE = CDC_BUSY;
 
 extern struct netif gnetif;
 extern USBH_HandleTypeDef hUsbHostHS;
 
-static int cdc_HandlesIndex = 0;
-CDC_HandleTypeDef cdc_Handles [DEVICE_COUNT];
+int cdcDeviceBufferIndex = 0;
+CDC_HandleTypeDef cdc_Handles [LPC_MCU_SIZE];
 
 // when DMA conversion is completed, HAL_ADC_ConvCpltCallback function
 // will interrupt the processor. You can find this function in
@@ -156,7 +147,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 	}else{
 		for (int i = 0; i < ADC_LINES_SIZE; ++i) {
 			QAdcMeasuremenLine* line = &qDevice.adcEntitie.measurementLines[i];
-			line->tick = (float32_t)(qDevice.qMeasurer.periodMs/qDevice.adcEntitie.settings.periodMs) * i;
+			line->tick = (float32_t)(qDevice.qMeasurer.periodMs/qDevice.adcEntitie.settings.periodMs) * (i+1);
 			for(int j = 0 ; j < ADC_CHANNEL_SIZE ; j++){
 				line -> measurements[j] = /*qDevice.adcEntitie.pCoef */ qDevice.adcEntitie.adcValues[i*2 + j];
 			}
@@ -164,6 +155,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 		ethBankIsFullStatus = SET;
 	}
 }
+
+// Interrupt Handling Function
+
 
 /* USER CODE END PV */
 
@@ -183,6 +177,8 @@ static void MX_TIM8_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM12_Init(void);
+static void MX_TIM5_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
@@ -200,7 +196,7 @@ void MX_USB_HOST_Process(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-extern ApplicationTypeDef Appli_state;
+
   /* USER CODE END 1 */
 
   /* Enable I-Cache---------------------------------------------------------*/
@@ -244,12 +240,29 @@ extern ApplicationTypeDef Appli_state;
   MX_USART3_UART_Init();
   MX_TIM2_Init();
   MX_TIM1_Init();
+  MX_TIM12_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
+// JUST FOR TESTS
+//  qDevice.tomographConfig.cutRate = 100; //Hz
+//  htim4.Instance->ARR = 1000/qDevice.tomographConfig.cutRate * 1000;
+//  htim4.Init.Period = htim4.Instance->ARR;
+//  TIM_OC_InitTypeDef sConfigOC = {0};
+//  sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
+//  sConfigOC.Pulse = htim4.Init.Period/2;
+//  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
+//  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+//  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK) Error_Handler();
+//  sConfigOC.Pulse = htim4.Init.Period/(qDevice.tomographConfig.stepCount * 2);
+//  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK) Error_Handler();
+
+  HAL_GPIO_WritePin(GPIOB, ULPI_RES_Pin, GPIO_PIN_RESET);
 
   if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED) != HAL_OK) Error_Handler();
   /*##-3- Set DAC Channel1 DHR register ######################################*/
   if (HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 3000) != HAL_OK) Error_Handler();
   if (HAL_DAC_Start(&hdac1, DAC_CHANNEL_1) != HAL_OK)  Error_Handler();
+
 
   eMBTCPInit(qDevice.eth_params.modBusTcpPort);
   eMBEnable();
@@ -287,136 +300,86 @@ extern ApplicationTypeDef Appli_state;
 		memset(&qDevice.adcEntitie.measurementLines[0], 0, size);
 	}
 
-//    printf("MX_USB_HOST_Process duration = %d us\n\r", (int)__HAL_TIM_GET_COUNTER(&htim4));
-//    HAL_TIM_Base_Stop(&htim4);
-//    __HAL_TIM_SET_COUNTER(&htim4, 0);
-//    btnCounter++;
-//    if(btnCounter > BTN_DELAY){
-//    	btnCounter = 0;
-//	if (Appli_state == APPLICATION_READY){
-//		switch (CDC_STATE){
-//			case CDC_SEND:{
-//				status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, 3);
-//				CDC_STATE = CDC_BUSY;
-//				break;
-//			}
-//			case CDC_RECEIVE:{
-//				memset(cdc_rx_buf, 0, USBHS_MAX_BULK_PACKET_SIZE);
-//				status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, 62);
-//				CDC_STATE = CDC_BUSY;
-//			}
-//			default:  break;
-//			}
-////    	if(status == USBH_OK) status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
-////    	if(packetSendCounter != 0)	printf("send=%d.\n\r", packetSendCounter);
-//	}
-//    }
+//	HAL_GPIO_TogglePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin);
 
-
-    if(usbSendState != 0){
-		if (Appli_state == APPLICATION_READY){
-			switch (CDC_STATE){
-				case CDC_SEND:{
-
-					hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
-					if(cdc_HandlesIndex >= DEVICE_COUNT){
-						cdc_HandlesIndex = 0;
-					}
-
-					status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
-					if(status == USBH_OK) {
-						CDC_STATE = CDC_BUSY;
-					}else{
-						printf("USBH_CDC_Transmit error %d", status);
-						CDC_STATE = CDC_SEND;
-					}
-					break;
-				}
-				case CDC_RECEIVE:{
-					memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
-
-					status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, USBHS_MAX_BULK_FS_PACKET_SIZE-2);
-					if(status == USBH_OK) {
-						CDC_STATE = CDC_BUSY;
-					}
-					else{
-						printf("USBH_CDC_Receive error %d", status);
-						CDC_STATE = CDC_SEND;
-					}
-					break;
-				}
-				default:  break;
-			}
-		}
-    }
-
-
-    if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
-    	btnCounter++;
-    	if(btnCounter >= BTN_DELAY){
-			btnCounter = 0;
-    		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
-
-#ifdef I2C_USE
-		  printf("HAL_I2C_Master_Transmit.\r\n");
-		  HAL_StatusTypeDef hal_status = HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t*)aTxBuffer, i2cBufSize, 8000);
-/* Error_Handler() function is called when Timeout error occurs.
-   When Acknowledge failure occurs (Slave don't acknowledge its address)
-   Master restarts communication
-*/
-			if (hal_status != HAL_OK){
-				  printf("hal_status=%d\tHAL_I2C_GetError=%d.\r\n", hal_status, (int)HAL_I2C_GetError(&hi2c2));
+	switch (CDC_STATE){
+		case CDC_SEND:
+			HAL_GPIO_WritePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin, GPIO_PIN_SET);
+			status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)USB_SOP, 1);
+			if(status == USBH_OK) {
+				CDC_STATE = CDC_BUSY;
 			}else{
-				 HAL_Delay(50);
-				 printf("HAL_I2C_Master_Receive.\r\n");
-				 hal_status = HAL_I2C_Master_Receive(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t *)aRxBuffer, i2cBufSize, 8000);
-				 if (hal_status != HAL_OK){
-					 printf("I2C Reception error %d.\r\n", (int)HAL_I2C_GetError(&hi2c2));
-				 }else{
-					 printf("Transfer in reception process is correct.\r\n");
-				 }
+				printf("USBH_CDC_Transmit error %d\r\n", status);
 			}
-
-#endif
-
-#ifdef USB_USE
-    		usbSendState ^= 1;
-    		if(usbSendState != 0){
-    			printf("Button toggle event. Start USB sending.\r\n");
-				__HAL_TIM_SET_COUNTER(&htim8, 0);
-				HAL_TIM_Base_Start_IT(&htim8);
-				CDC_STATE = CDC_SEND;
-    		}else{
-    			HAL_TIM_Base_Stop_IT(&htim8);
-    			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
-    			printf("Button toggle event. Stop USB sending.\r\n");
-    			packetSendCounter = 0;
-    			packetReceiveCounter = 0;
-    			bytesReceiveCounter = 0;
-    		}
-#endif
+			break;
+		case CDC_RECEIVE:
+			status = USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)qDevice.lpcPacketStorage.pLpcBufToCollect, USB_PACKET_SIZE);
+			if(status == USBH_OK) {
+				CDC_STATE = CDC_BUSY;
+			}else{
+				printf("USBH_CDC_Receive error %d\r\n", status);
+			}
+			break;
+		default:  break;
+	}
 
 
-
-//    		__HAL_TIM_SET_COUNTER(&htim4, 0);
-//
-//    		int size = 1;
-//
-//    		hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdc_HandlesIndex++];
-//    		if(cdc_HandlesIndex >= DEVICE_COUNT){
-//    			cdc_HandlesIndex = 0;
-//    		}
-//
-//    		status = USBH_CDC_Transmit(&hUsbHostHS, (uint8_t *)cdc_tx_buf, size);
-////    		printf("USB packet with size %d has been transmitted status %d.\n\r", size, status);
-//    		memset(cdc_rx_buf, 0, USBHS_MAX_BULK_FS_PACKET_SIZE);
-//    		if(status == USBH_OK) USBH_CDC_Receive(&hUsbHostHS, (uint8_t *)cdc_rx_buf, TX_SIZE);
-    	}
-//    }else{
-//    	HAL_GPIO_WritePin(ULPI_RES_GPIO_Port, ULPI_RES_Pin, RESET);
-    }else{
-    	btnCounter = 0;
+    if(usbDataHasCollected == SET){
+    	packCutPacket(qDevice.lpcPacketStorage.pLpcBufToSend, LPC_MCU_SIZE);
+    	usbDataHasCollected = RESET;
+//    	printf("Send Pack and send UDP packet to FlowPC\r\n");
     }
+
+
+//    if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
+//    	btnCounter++;
+//    	if(btnCounter >= BTN_DELAY){
+//    		startStreamMeasuering();
+//			btnCounter = 0;
+//    		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
+//
+//#ifdef I2C_USE
+//		  printf("HAL_I2C_Master_Transmit.\r\n");
+//		  HAL_StatusTypeDef hal_status = HAL_I2C_Master_Transmit(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t*)aTxBuffer, i2cBufSize, 8000);
+///* Error_Handler() function is called when Timeout error occurs.
+//   When Acknowledge failure occurs (Slave don't acknowledge its address)
+//   Master restarts communication
+//*/
+//			if (hal_status != HAL_OK){
+//				  printf("hal_status=%d\tHAL_I2C_GetError=%d.\r\n", hal_status, (int)HAL_I2C_GetError(&hi2c2));
+//			}else{
+//				 HAL_Delay(50);
+//				 printf("HAL_I2C_Master_Receive.\r\n");
+//				 hal_status = HAL_I2C_Master_Receive(&hi2c2, (uint16_t)I2C_ADDRESS, (uint8_t *)aRxBuffer, i2cBufSize, 8000);
+//				 if (hal_status != HAL_OK){
+//					 printf("I2C Reception error %d.\r\n", (int)HAL_I2C_GetError(&hi2c2));
+//				 }else{
+//					 printf("Transfer in reception process is correct.\r\n");
+//				 }
+//			}
+//
+//#endif
+//
+//#ifdef USB_TEST
+//    		usbDataCollectingState ^= 1;
+//    		if(usbDataCollectingState != 0){
+//    			printf("Button toggle event. Start USB sending.\r\n");
+//				__HAL_TIM_SET_COUNTER(&htim8, 0);
+//				HAL_TIM_Base_Start_IT(&htim8);
+//				CDC_STATE = CDC_SEND;
+//    		}else{
+//    			HAL_TIM_Base_Stop_IT(&htim8);
+//    			HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
+//    			printf("Button toggle event. Stop USB sending.\r\n");
+//    			packetSendCounter = 0;
+//    			packetReceiveCounter = 0;
+//    			bytesReceiveCounter = 0;
+//    		}
+//#endif
+//    	}
+//    }else{
+//    	btnCounter = 0;
+//    }
 
 	 // stop continuous measuring if don't get continue measuring
 #ifdef uninterruptableMeasurementWatchdogInterval
@@ -430,7 +393,7 @@ extern ApplicationTypeDef Appli_state;
    }
 #endif
 
-//		software reset if deviceResetFlag is set
+/*		Software reset if after flag loop count deviceResetFlag is set */
 	if(qDevice.deviceResetFlag != RESET){
 		qDevice.deviceResetFlag--;
 		if(qDevice.deviceResetFlag == RESET){
@@ -739,9 +702,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 27499;
+  htim1.Init.Prescaler = 27500-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 50000;
+  htim1.Init.Period = 50000-1;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -786,7 +749,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 274;
+  htim2.Init.Prescaler = 275-1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -832,9 +795,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 27499;
+  htim3.Init.Prescaler = 27500;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 1000;
+  htim3.Init.Period = 1000-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -890,9 +853,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 274;
+  htim4.Init.Prescaler = 275-1;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 1000;
+  htim4.Init.Period = 1000-1;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -904,7 +867,7 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_OC_Init(&htim4) != HAL_OK)
+  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -914,16 +877,11 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 500;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.Pulse = 50;
-  if (HAL_TIM_OC_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -931,6 +889,65 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 2 */
   HAL_TIM_MspPostInit(&htim4);
+
+}
+
+/**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 275-1;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 62;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 30;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim5, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
+  HAL_TIM_MspPostInit(&htim5);
 
 }
 
@@ -953,9 +970,9 @@ static void MX_TIM8_Init(void)
 
   /* USER CODE END TIM8_Init 1 */
   htim8.Instance = TIM8;
-  htim8.Init.Prescaler = 27499;
+  htim8.Init.Prescaler = 27500-1;
   htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim8.Init.Period = 10000;
+  htim8.Init.Period = 10000-1;
   htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim8.Init.RepetitionCounter = 0;
   htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -978,6 +995,52 @@ static void MX_TIM8_Init(void)
   /* USER CODE BEGIN TIM8_Init 2 */
 
   /* USER CODE END TIM8_Init 2 */
+
+}
+
+/**
+  * @brief TIM12 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM12_Init(void)
+{
+
+  /* USER CODE BEGIN TIM12_Init 0 */
+
+  /* USER CODE END TIM12_Init 0 */
+
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM12_Init 1 */
+
+  /* USER CODE END TIM12_Init 1 */
+  htim12.Instance = TIM12;
+  htim12.Init.Prescaler = 0;
+  htim12.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim12.Init.Period = 7;
+  htim12.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim12.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim12) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+  sSlaveConfig.InputTrigger = TIM_TS_ITR1;
+  if (HAL_TIM_SlaveConfigSynchro(&htim12, &sSlaveConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim12, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM12_Init 2 */
+
+  /* USER CODE END TIM12_Init 2 */
 
 }
 
@@ -1070,10 +1133,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(ULPI_RES_GPIO_Port, ULPI_RES_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(RedLed_GPIO_Port, RedLed_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, RedLed_Pin|CUT_EVENT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_FS_PWR_EN_GPIO_Port, USB_FS_PWR_EN_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, SYNC1_Pin|SYNC2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(YellowLed_GPIO_Port, YellowLed_Pin, GPIO_PIN_RESET);
@@ -1104,6 +1170,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(USB_FS_PWR_EN_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : SYNC1_Pin SYNC2_Pin */
+  GPIO_InitStruct.Pin = SYNC1_Pin|SYNC2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : CUT_EVENT_Pin */
+  GPIO_InitStruct.Pin = CUT_EVENT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(CUT_EVENT_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : YellowLed_Pin */
   GPIO_InitStruct.Pin = YellowLed_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -1117,25 +1197,47 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
-//	int duration = (int)__HAL_TIM_GET_COUNTER(&htim4);
-//	int size = sizeof(cdc_rx_buf);
-//	int address = ((CDC_HandleTypeDef*)(phost->pActiveClass->pData))->target.dev_address;
-//	printf("Got USB packet, duration=%d us; size=%d; address=%d %s\n\r", duration, size, address, cdc_rx_buf);
-//	if(size == USBHS_MAX_BULK_PACKET_SIZE)
-	CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
-	bytesReceiveCounter += CDC_Handle->RxDataLength;
-	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_SEND;
-	packetReceiveCounter++;
+	if (CDC_STATE == CDC_BUSY){
+		/*	 DEBUG section	*/
+		CDC_HandleTypeDef *CDC_Handle = (CDC_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
+		bytesReceiveCounter += CDC_Handle->RxDataLength;
+		packetReceiveCounter++;
+		/*END OF FOR DEUBG */
+
+		cdcDeviceBufferIndex++;
+		if(cdcDeviceBufferIndex < 2*LPC_MCU_SIZE){
+			hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdcDeviceBufferIndex % LPC_MCU_SIZE];
+			memcpy(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex], CDC_Handle->pRxData, USB_PACKET_SIZE);
+			qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex];
+			if((cdcDeviceBufferIndex % LPC_MCU_SIZE) == 0){
+				qDevice.lpcPacketStorage.pLpcBufToSend = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex-LPC_MCU_SIZE];
+				usbDataHasCollected = SET;
+			}else{
+				CDC_STATE = CDC_SEND;
+			}
+		}else{
+			cdcDeviceBufferIndex = 0;
+		}
+
+		/* FOR DEBUG */
+		HAL_GPIO_WritePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin, GPIO_PIN_RESET);
+		if((qDevice.qMeasurer.streamMeasurementStatus == DISABLE) && (usbDataHasCollected == SET)){
+			printf("cut=%d sPc=%d; rPc=%d rB=%d tick=%d\n\r",cutIndex, packetSendCounter, packetReceiveCounter, bytesReceiveCounter,htim2.Instance->CNT);
+		}
+	}
 }
 /**
   * @brief  The function informs user that data have been received
-  *  @param  pdev: Selected device
+  *  @param  phost: host handle typedef pointer
   * @retval None
   */
 void USBH_CDC_TransmitCallback(USBH_HandleTypeDef *phost){
   /* Prevent unused argument(s) compilation warning */
 	if (CDC_STATE == CDC_BUSY) CDC_STATE = CDC_RECEIVE;
+
+	/*	DEBUG section	*/
 	packetSendCounter++;
+	/*END OF FOR DEUBG */
 }
 /* USER CODE END 4 */
 

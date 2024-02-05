@@ -41,7 +41,7 @@
 
 /* USB Host core handle declaration */
 USBH_HandleTypeDef hUsbHostHS;
-ApplicationTypeDef Appli_state = APPLICATION_IDLE;
+ApplicationTypeDef usb_stack_state = APPLICATION_IDLE;
 
 /*
  * -- Insert your variables declaration here --
@@ -109,16 +109,16 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id){
   break;
 
   case HOST_USER_DISCONNECTION:
-  Appli_state = APPLICATION_DISCONNECT;
+  usb_stack_state = APPLICATION_DISCONNECT;
   break;
 
   case HOST_USER_CLASS_ACTIVE:
-  Appli_state = APPLICATION_READY;
-  CDC_STATE = CDC_SEND;
+  usb_stack_state = APPLICATION_READY;
+  CDC_STATE = CDC_BUSY;
   break;
 
   case HOST_USER_CONNECTION:
-  Appli_state = APPLICATION_START;
+  usb_stack_state = APPLICATION_START;
   break;
 
   default:
