@@ -271,20 +271,16 @@ void TIM4_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM4_IRQn 0 */
 	if(__HAL_TIM_GET_FLAG(&htim4, TIM_FLAG_UPDATE) != RESET){
+		qDevice.udpPacketPointer->cutId = cutIndex;
 		cutIndex++;
-		if(cutIndex < 5){
+		if(cutIndex < 20){
 	//		__HAL_TIM_SET_COUNTER(&htim5, 0);
 			HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
-		}else if (cutIndex == 5){
+		}else if (cutIndex == 20){
 			HAL_TIM_Base_Stop_IT(&htim12);
 			stopStreamMeasuering();
 		}
-//		else{
-//			TIM_CCxChannelCmd(htim4.Instance, TIM_CHANNEL_3, TIM_CCx_DISABLE);
-//			HAL_TIM_PWM_Stop(&htim4, TIM_CHANNEL_3);
-//			stopStreamMeasuering();
-//			cutIndex--;
-//		}
+
 		CDC_STATE = CDC_SEND; // send request to the next LPC
 		__HAL_TIM_CLEAR_IT(&htim4, TIM_IT_UPDATE);
 	/*	FOR DEBUG	*/

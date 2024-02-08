@@ -58,7 +58,7 @@
 /* USER CODE BEGIN PM */
 
 
-#define BTN_DELAY	2000000
+#define BTN_DELAY	50000
 
 #define DEVICE_COUNT	2
 
@@ -328,7 +328,7 @@ int main(void)
 
 
     if(usbDataHasCollected == SET){
-    	packCutPacket(qDevice.udpPacketPointer, qDevice.lpcPacketStorage.pLpcBufToSend, LPC_MCU_SIZE);
+    	packCutPacket(qDevice.udpPacketPointer, qDevice.tomographConfig.stepCount, qDevice.lpcPacketStorage.pLpcBufToSend);
     	usbDataHasCollected = RESET;
     	qDevice.udpPacketPointer++;
     	qDevice.udpPacketPointer->tick = (float32_t)htim2.Instance->CNT/1000.0;
@@ -349,9 +349,11 @@ int main(void)
     }
 
 
-//    if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
-//    	btnCounter++;
-//    	if(btnCounter >= BTN_DELAY){
+    if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
+    	btnCounter++;
+    	if(btnCounter >= BTN_DELAY){
+    		fillLpcSampleData(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[0]);
+    		packCutPacket(&qDevice.udpPacketStorage[0], 8, &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[0]);
 //    		startStreamMeasuering();
 //			btnCounter = 0;
 //    		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
@@ -395,9 +397,10 @@ int main(void)
 //    		}
 //#endif
 //    	}
-//    }else{
-//    	btnCounter = 0;
-//    }
+		}
+    }else{
+		btnCounter = 0;
+	}
 
 	 // stop continuous measuring if don't get continue measuring
 #ifdef uninterruptableMeasurementWatchdogInterval
@@ -1225,16 +1228,17 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 		cdcDeviceBufferIndex++;
 		if(cdcDeviceBufferIndex < 2*LPC_MCU_SIZE){
 			hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdcDeviceBufferIndex % LPC_MCU_SIZE];
-			memcpy(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex], CDC_Handle->pRxData, USB_PACKET_SIZE);
-			qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex];
+//			memcpy(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex], CDC_Handle->pRxData, USB_PACKET_SIZE);
+			qDevice.lpcPacketStorage.pLpcBufToCollect++;// = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex];
 			if((cdcDeviceBufferIndex % LPC_MCU_SIZE) == 0){
-				qDevice.lpcPacketStorage.pLpcBufToSend = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex-LPC_MCU_SIZE];
+				qDevice.lpcPacketStorage.pLpcBufToSend = qDevice.lpcPacketStorage.pLpcBufToCollect - LPC_MCU_SIZE;
 				usbDataHasCollected = SET;
 			}else{
 				CDC_STATE = CDC_SEND;
 			}
 		}else{
 			cdcDeviceBufferIndex = 0;
+			qDevice.lpcPacketStorage.pLpcBufToCollect = 0;
 		}
 
 		/* FOR DEBUG */

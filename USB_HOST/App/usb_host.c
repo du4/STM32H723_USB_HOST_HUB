@@ -177,6 +177,7 @@ static uint32_t checkUsbDevices(USBH_HandleTypeDef *phost){
 				}
 			}
 		}
+		return status;
 	}
 
 }
