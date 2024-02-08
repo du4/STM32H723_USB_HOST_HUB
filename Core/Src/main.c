@@ -132,6 +132,7 @@ extern struct netif gnetif;
 extern USBH_HandleTypeDef hUsbHostHS;
 
 int cdcDeviceBufferIndex = 0;
+int cdcHandlesSize = 0;
 CDC_HandleTypeDef cdc_Handles [LPC_MCU_SIZE];
 
 // when DMA conversion is completed, HAL_ADC_ConvCpltCallback function
@@ -330,6 +331,7 @@ int main(void)
     	packCutPacket(qDevice.udpPacketPointer, qDevice.lpcPacketStorage.pLpcBufToSend, LPC_MCU_SIZE);
     	usbDataHasCollected = RESET;
     	qDevice.udpPacketPointer++;
+    	qDevice.udpPacketPointer->tick = (float32_t)htim2.Instance->CNT/1000.0;
     	if(qDevice.udpPacketPointer == &qDevice.udpPacketStorage[TOMOGRAPH_UDP_CUTS_PER_PACKET] ||
     			qDevice.udpPacketPointer == &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
     		udpTomographPacketHasCollected = SET;
@@ -340,7 +342,7 @@ int main(void)
     	udpTomographPacketHasCollected = RESET;
     	size_t size = sizeof(QTomographUdpCut)*TOMOGRAPH_UDP_CUTS_PER_PACKET;
     	udpClientSend(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET, size);
-    	memset(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET, 0, size);
+//    	memset(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET, 0, size);
     	if(qDevice.udpPacketPointer == &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
 			qDevice.udpPacketPointer = &qDevice.udpPacketStorage[0];
 		}
@@ -1237,7 +1239,7 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 
 		/* FOR DEBUG */
 		HAL_GPIO_WritePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin, GPIO_PIN_RESET);
-		if(usbDataHasCollected == SET){
+		if(usbDataHasCollected == SET && qDevice.qMeasurer.streamMeasurementStatus == DISABLE){
 			printf("cut=%d sPc=%d; rPc=%d rB=%d tick=%d\n\r",cutIndex, packetSendCounter, packetReceiveCounter, bytesReceiveCounter,htim2.Instance->CNT);
 		}
 	}

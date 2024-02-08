@@ -141,8 +141,10 @@ USBH_ClassTypeDef  CDC_Class =
 /** @defgroup USBH_CDC_CORE_Private_Functions
   * @{
   */
-static int cdcHandlesSize = 0;
+extern int cdcHandlesSize;
 extern CDC_HandleTypeDef cdc_Handles[];
+
+
 /**
   * @brief  USBH_CDC_InterfaceInit
   *         The function init the CDC class.

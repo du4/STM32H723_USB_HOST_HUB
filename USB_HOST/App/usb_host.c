@@ -26,7 +26,8 @@
 #include "usbh_hub.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "device.h"
+#include "deviceStatus.h"
 /* USER CODE END Includes */
 
 /* USER CODE BEGIN PV */
@@ -48,13 +49,14 @@ ApplicationTypeDef usb_stack_state = APPLICATION_IDLE;
  */
 /* USER CODE BEGIN 0 */
 extern CDC_StateTypedef CDC_STATE;
+extern int cdcHandlesSize;
 /* USER CODE END 0 */
 
 /*
  * user callback declaration
  */
 static void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id);
-
+static uint32_t checkUsbDevices(USBH_HandleTypeDef *phost);
 /*
  * -- Insert your external function declaration here --
  */
@@ -113,8 +115,12 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id){
   break;
 
   case HOST_USER_CLASS_ACTIVE:
-  usb_stack_state = APPLICATION_READY;
-  CDC_STATE = CDC_BUSY;
+
+  uint32_t status = checkUsbDevices(phost);
+  if(status == 0){
+	  usb_stack_state = APPLICATION_READY;
+	  CDC_STATE = CDC_BUSY;
+  }
   break;
 
   case HOST_USER_CONNECTION:
@@ -125,6 +131,54 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id){
   break;
   }
   /* USER CODE END CALL_BACK_1 */
+}
+
+static uint32_t checkUsbDevices(USBH_HandleTypeDef *phost){
+	uint32_t status = 0;
+	/* LOG via printf HUBs and USB Devices */
+	printf("USB devices list:\r\n\tRootHub: address=%d;\r\n", phost->rootHubHanlde->target.dev_address);
+	if(phost->rootHubHanlde == NULL){
+		printf("Error! No root HUB has founded!\r\n");
+		SET_TOMOGRAPH_DEVICE_STATUS(status, ROOT_HUB_CONNTCTION_ERROR);
+	}else{
+		if(phost->rootHubHanlde->hubs[0] == NULL){
+			printf("Error! No child0 HUB has founded!\r\n");
+			SET_TOMOGRAPH_DEVICE_STATUS(status, CHILD0_HUB_CONNTCTION_ERROR);
+		}
+		if(phost->rootHubHanlde->hubs[1] == NULL){
+			printf("Error! No child1 HUB has founded!\r\n");
+			SET_TOMOGRAPH_DEVICE_STATUS(status, CHILD1_HUB_CONNTCTION_ERROR);
+		}
+
+		if(cdcHandlesSize != LPC_MCU_SIZE){
+			printf("Error! %d LPC MCUs have founded, but it must be equals to %d\r\n", cdcHandlesSize, LPC_MCU_SIZE);
+			SET_TOMOGRAPH_DEVICE_STATUS(status, NOT_ALL_USB_LPC_FOUNDED_ERROR);
+		}
+
+
+		if(status > 0)return status;
+
+		printf("\tChild Hubs:\r\n");
+
+		for (size_t hub = 0; hub < MAX_HUB_PORTS; ++hub) {
+			if(phost->rootHubHanlde->Targets[hub].dev_address != 0){
+				int hAddress = phost->rootHubHanlde->Targets[hub].dev_address;
+				int hubPort = phost->rootHubHanlde->Targets[hub].tt_prtaddr;
+				printf("\t\t address=%d; root hub port=%d\r\n", hAddress, hubPort);
+				for (size_t chhub = 0; chhub < CHILD_HUBS; ++chhub) {
+					if(phost->rootHubHanlde->hubs[chhub]->target.dev_address == hAddress){
+						for (size_t port = 0; port < MAX_HUB_PORTS; ++port) {
+							HUB_HandleTypeDef* ch = phost->rootHubHanlde->hubs[chhub];
+							if(ch->Targets[port].dev_address != 0){
+								printf("\t\t\tDevice address=%d; hub port=%d\r\n", ch->Targets[port].dev_address, ch->Targets[port].tt_prtaddr);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 }
 
 /**
