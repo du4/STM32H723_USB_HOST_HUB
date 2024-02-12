@@ -111,7 +111,7 @@ int usbDataHasCollected = RESET;
 
 int udpTomographPacketHasCollected = RESET;
 
-uint8_t ethBankIsFullStatus;
+uint8_t ethPressuresBankFullStatus;
 
 uint32_t cutIndex=0;
 
@@ -155,7 +155,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 				line -> measurements[j] = /*qDevice.adcEntitie.pCoef */ qDevice.adcEntitie.adcValues[i*2 + j];
 			}
 		}
-		ethBankIsFullStatus = SET;
+		ethPressuresBankFullStatus = SET;
 	}
 }
 
@@ -294,14 +294,6 @@ int main(void)
 	/* Check if ModBus packet received */
 	if(eMBPoll() != MB_ENOERR) Error_Handler();
 
-	// send ADC measurement packet via UDP if it's ready to send
-	if(ethBankIsFullStatus == SET){
-		ethBankIsFullStatus = RESET;
-		printf("Last adc1_3(P1)=%f, acd1_10(P2)=%f\r\n",qDevice.adcEntitie.measurementLines[99].measurements[0],qDevice.adcEntitie.measurementLines[99].measurements[1]);
-		size_t size = sizeof(QAdcMeasuremenLine)*ADC_LINES_SIZE;
-		udpClientSend(&qDevice.adcEntitie.measurementLines[0], size);
-		memset(&qDevice.adcEntitie.measurementLines[0], 0, size);
-	}
 
 //	HAL_GPIO_TogglePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin);
 
@@ -328,6 +320,7 @@ int main(void)
 
 
     if(usbDataHasCollected == SET){
+    	fillLpcSampleData(qDevice.udpPacketPointer->cutId, qDevice.lpcPacketStorage.pLpcBufToSend);
     	packCutPacket(qDevice.udpPacketPointer, qDevice.tomographConfig.stepCount, qDevice.lpcPacketStorage.pLpcBufToSend);
     	usbDataHasCollected = RESET;
     	qDevice.udpPacketPointer++;
@@ -338,23 +331,35 @@ int main(void)
     	}
     }
 
+    /* Send Tomograph packet*/
     if(udpTomographPacketHasCollected == SET){
     	udpTomographPacketHasCollected = RESET;
-    	size_t size = sizeof(QTomographUdpCut)*TOMOGRAPH_UDP_CUTS_PER_PACKET;
-    	udpClientSend(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET, size);
+//    	size_t size = sizeof(QTomographUdpCut)*TOMOGRAPH_UDP_CUTS_PER_PACKET;
+    	uint8_t* address = (uint8_t*)(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET) - 4;// shift for packet type
+
+    	*address = TOMOGRAPH_PACKET_TYPE; // set packet size
+    	udpClientSend(address, UDP_PACKET_FIXED_SIZE);
 //    	memset(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET, 0, size);
     	if(qDevice.udpPacketPointer == &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
 			qDevice.udpPacketPointer = &qDevice.udpPacketStorage[0];
 		}
     }
 
+	// send ADC measurement packet via UDP if it's ready to send
+	if(ethPressuresBankFullStatus == SET){
+		ethPressuresBankFullStatus = RESET;
+		printf("Last adc1_3(P1)=%f, acd1_10(P2)=%f\r\n",qDevice.adcEntitie.measurementLines[99].measurements[0],qDevice.adcEntitie.measurementLines[99].measurements[1]);
+		qDevice.adcEntitie.udpPacketTypeSpace = PRESSURE_PACKET_TYPE;
+		udpClientSend(&qDevice.adcEntitie.udpPacketTypeSpace, UDP_PACKET_FIXED_SIZE);
+		memset(&qDevice.adcEntitie.measurementLines[0], 0, sizeof(QAdcMeasuremenLine)*ADC_LINES_SIZE);
+	}
 
-    if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
-    	btnCounter++;
-    	if(btnCounter >= BTN_DELAY){
-    		fillLpcSampleData(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[0]);
-    		packCutPacket(&qDevice.udpPacketStorage[0], 8, &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[0]);
-//    		startStreamMeasuering();
+
+//    if(HAL_GPIO_ReadPin(UserBtn_GPIO_Port, UserBtn_Pin) == GPIO_PIN_SET){
+//    	btnCounter++;
+//    	if(btnCounter >= BTN_DELAY){
+//    		fillLpcSampleData(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[0]);
+//    		packCutPacket(&qDevice.udpPacketStorage[0], 8, &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[0]);
 //			btnCounter = 0;
 //    		HAL_GPIO_TogglePin(YellowLed_GPIO_Port, YellowLed_Pin);
 //
@@ -397,10 +402,10 @@ int main(void)
 //    		}
 //#endif
 //    	}
-		}
-    }else{
-		btnCounter = 0;
-	}
+//		}
+//    }else{
+//		btnCounter = 0;
+//	}
 
 	 // stop continuous measuring if don't get continue measuring
 #ifdef uninterruptableMeasurementWatchdogInterval
@@ -1229,7 +1234,7 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 		if(cdcDeviceBufferIndex < 2*LPC_MCU_SIZE){
 			hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdcDeviceBufferIndex % LPC_MCU_SIZE];
 //			memcpy(&qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex], CDC_Handle->pRxData, USB_PACKET_SIZE);
-			qDevice.lpcPacketStorage.pLpcBufToCollect++;// = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex];
+			qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex];
 			if((cdcDeviceBufferIndex % LPC_MCU_SIZE) == 0){
 				qDevice.lpcPacketStorage.pLpcBufToSend = qDevice.lpcPacketStorage.pLpcBufToCollect - LPC_MCU_SIZE;
 				usbDataHasCollected = SET;
@@ -1238,7 +1243,7 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 			}
 		}else{
 			cdcDeviceBufferIndex = 0;
-			qDevice.lpcPacketStorage.pLpcBufToCollect = 0;
+//			qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[0];
 		}
 
 		/* FOR DEBUG */

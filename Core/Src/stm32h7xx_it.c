@@ -273,10 +273,9 @@ void TIM4_IRQHandler(void)
 	if(__HAL_TIM_GET_FLAG(&htim4, TIM_FLAG_UPDATE) != RESET){
 		qDevice.udpPacketPointer->cutId = cutIndex;
 		cutIndex++;
-		if(cutIndex < 20){
-	//		__HAL_TIM_SET_COUNTER(&htim5, 0);
+		if(cutIndex < 5){
 			HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
-		}else if (cutIndex == 20){
+		}else if (cutIndex == 5){
 			HAL_TIM_Base_Stop_IT(&htim12);
 			stopStreamMeasuering();
 		}
