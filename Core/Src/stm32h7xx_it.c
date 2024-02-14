@@ -69,13 +69,13 @@ extern int cdcDeviceBufferIndex;
 /* External variables --------------------------------------------------------*/
 extern HCD_HandleTypeDef hhcd_USB_OTG_HS;
 extern DMA_HandleTypeDef hdma_adc1;
-extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim8;
-extern TIM_HandleTypeDef htim12;
+extern TIM_HandleTypeDef htim15;
+extern TIM_HandleTypeDef htim23;
 /* USER CODE BEGIN EV */
-extern TIM_HandleTypeDef htim5;
+extern TIM_HandleTypeDef htim1;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -231,26 +231,6 @@ void DMA1_Stream0_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles TIM1 update interrupt.
-  */
-void TIM1_UP_IRQHandler(void)
-{
-  /* USER CODE BEGIN TIM1_UP_IRQn 0 */
-	if(__HAL_TIM_GET_FLAG(&htim1, TIM_FLAG_UPDATE) != RESET){
-		__HAL_TIM_DISABLE(&htim1);
-		qDevice.main_cycle_counter = 0;
-		DDS_Sleep_Timer->CNT = 0;
-		DDS_Power_Control(DDS_POWER_DOWN);
-		__HAL_TIM_CLEAR_IT(&htim1, TIM_IT_UPDATE);
-	}
-  /* USER CODE END TIM1_UP_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim1);
-  /* USER CODE BEGIN TIM1_UP_IRQn 1 */
-
-  /* USER CODE END TIM1_UP_IRQn 1 */
-}
-
-/**
   * @brief This function handles TIM2 global interrupt.
   */
 void TIM2_IRQHandler(void)
@@ -273,10 +253,10 @@ void TIM4_IRQHandler(void)
 	if(__HAL_TIM_GET_FLAG(&htim4, TIM_FLAG_UPDATE) != RESET){
 		qDevice.udpPacketPointer->cutId = cutIndex;
 		cutIndex++;
-		if(cutIndex < 5){
-			HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
-		}else if (cutIndex == 5){
-			HAL_TIM_Base_Stop_IT(&htim12);
+		if(cutIndex < 6){
+		HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+		}else if (cutIndex == 6){
+			HAL_TIM_Base_Stop_IT(&htim15);
 			stopStreamMeasuering();
 		}
 
@@ -287,30 +267,10 @@ void TIM4_IRQHandler(void)
 	/*	END OF FOR DEBUG */
 	}
   /* USER CODE END TIM4_IRQn 0 */
-//  HAL_TIM_IRQHandler(&htim4);
+  HAL_TIM_IRQHandler(&htim4);
   /* USER CODE BEGIN TIM4_IRQn 1 */
 
   /* USER CODE END TIM4_IRQn 1 */
-}
-
-/**
-  * @brief This function handles TIM8 break interrupt and TIM12 global interrupt.
-  */
-void TIM8_BRK_TIM12_IRQHandler(void)
-{
-  /* USER CODE BEGIN TIM8_BRK_TIM12_IRQn 0 */
-//	if(__HAL_TIM_GET_FLAG(&htim12, TIM_FLAG_UPDATE) != RESET){
-//		HAL_TIM_Base_Stop(&htim5);
-		HAL_TIM_PWM_Stop(&htim5, TIM_CHANNEL_1);
-//		__HAL_TIM_SET_COUNTER(&htim12,0);
-//	}
-	__HAL_TIM_CLEAR_IT(&htim12, TIM_IT_UPDATE);
-  /* USER CODE END TIM8_BRK_TIM12_IRQn 0 */
-//  HAL_TIM_IRQHandler(&htim8);
-//  HAL_TIM_IRQHandler(&htim12);
-  /* USER CODE BEGIN TIM8_BRK_TIM12_IRQn 1 */
-
-  /* USER CODE END TIM8_BRK_TIM12_IRQn 1 */
 }
 
 /**
@@ -344,6 +304,39 @@ void OTG_HS_IRQHandler(void)
   /* USER CODE BEGIN OTG_HS_IRQn 1 */
 
   /* USER CODE END OTG_HS_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM15 global interrupt.
+  */
+void TIM15_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM15_IRQn 0 */
+	HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
+  /* USER CODE END TIM15_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim15);
+  /* USER CODE BEGIN TIM15_IRQn 1 */
+
+  /* USER CODE END TIM15_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM23 global interrupt.
+  */
+void TIM23_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM23_IRQn 0 */
+	//DDS power down timer
+	if(__HAL_TIM_GET_FLAG(&htim23, TIM_FLAG_UPDATE) != RESET){
+		__HAL_TIM_DISABLE(&htim23);
+		__HAL_TIM_SET_COUNTER(&htim23,0);
+		DDS_Power_Control(DDS_POWER_DOWN);
+	}
+  /* USER CODE END TIM23_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim23);
+  /* USER CODE BEGIN TIM23_IRQn 1 */
+
+  /* USER CODE END TIM23_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

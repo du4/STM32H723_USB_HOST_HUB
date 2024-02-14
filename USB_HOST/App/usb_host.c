@@ -120,6 +120,8 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id){
   if(status == 0){
 	  usb_stack_state = APPLICATION_READY;
 	  CDC_STATE = CDC_BUSY;
+	  printf("\n\r===========================================\n\r");
+	  printf("usb_stack_state = APPLICATION_READY\r\n");
   }
   break;
 
