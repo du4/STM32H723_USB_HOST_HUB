@@ -135,7 +135,8 @@ int cdcDeviceBufferIndex = 0;
 int cdcHandlesSize = 0;
 CDC_HandleTypeDef cdc_Handles [LPC_MCU_SIZE];
 
-void packPressurePacket(){
+void packPressurePacket(uint32_t tick){
+	uint32_t intVar;
 	if(qDevice.adcEntitie.singleMeasurementFlag == SET){
 		QAdcMeasuremenLine* line = &qDevice.adcEntitie.measurementLines[0];
 		line->tick = 0;
@@ -145,11 +146,14 @@ void packPressurePacket(){
 		qDevice.adcEntitie.singleMeasurementFlag = RESET;
 	}else{
 		for (int i = 0; i < ADC_LINES_SIZE; ++i) {
-			QAdcMeasuremenLine* line = &qDevice.adcEntitie.measurementLines[i];
-			line->tick = (float32_t)(qDevice.qMeasurer.periodMs/qDevice.adcEntitie.settings.periodMs) * (i+1);
-			for(int j = 0 ; j < ADC_CHANNEL_SIZE ; j++){
-				line -> measurements[j] = /*qDevice.adcEntitie.pCoef */ qDevice.adcEntitie.adcValues[i*2 + j];
-			}
+			intVar = (qDevice.qMeasurer.periodMs/qDevice.adcEntitie.settings.periodMs) * (i+1);
+			if( tick > intVar ){
+				QAdcMeasuremenLine* line = &qDevice.adcEntitie.measurementLines[i];
+				line->tick = (float32_t)intVar;
+				for(int j = 0 ; j < ADC_CHANNEL_SIZE ; j++){
+					line -> measurements[j] = /*qDevice.adcEntitie.pCoef */ qDevice.adcEntitie.adcValues[i*2 + j];
+				}
+			}else break;
 		}
 	}
 }
@@ -159,7 +163,7 @@ void packPressurePacket(){
 // Drivers>STM32F4xx_HAL_Drivers>stm32f4xx_hal_adc.c file as __weak attribute
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 	qDevice.channelIndex = htim2.Instance->CNT;
-	packPressurePacket();
+	packPressurePacket(qDevice.channelIndex);
 	ethPressuresBankFullStatus = SET;
 }
 
@@ -279,6 +283,7 @@ int main(void)
 
   udpClientConnect(qDevice.eth_params.udpServerAddr, qDevice.eth_params.udpPort);
 
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -325,25 +330,24 @@ int main(void)
 
     if(usbDataHasCollected == SET){
     	usbDataHasCollected = RESET;
-//    	fillLpcSampleData(qDevice.udpPacketPointer->cutId, qDevice.lpcPacketStorage.pLpcBufToSend);
-    	packCutPacket(qDevice.udpPacketToCollectPointer, qDevice.tomographConfig.stepCount, qDevice.lpcPacketStorage.pLpcBufToSend);
     	qDevice.udpPacketToCollectPointer++;
-    	if(qDevice.udpPacketToCollectPointer >= &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
-    		qDevice.udpPacketToCollectPointer = &qDevice.udpPacketStorage[0];
-    	}else{
-    		if(qDevice.udpPacketToCollectPointer == &qDevice.udpPacketStorage[TOMOGRAPH_UDP_CUTS_PER_PACKET] ||
-					qDevice.udpPacketToCollectPointer == &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
-				qDevice.udpPacketToSendPointer = qDevice.udpPacketToCollectPointer - TOMOGRAPH_UDP_CUTS_PER_PACKET;
-				udpTomographPacketHasCollected = SET;
-			}
-    	}
+    	fillLpcSampleData(cutIndex, qDevice.lpcPacketStorage.pLpcBufToSend);
+    	packCutPacket(qDevice.udpPacketToCollectPointer-1, qDevice.tomographConfig.stepCount, qDevice.lpcPacketStorage.pLpcBufToSend);
+		if(qDevice.udpPacketToCollectPointer == &qDevice.udpPacketStorage[TOMOGRAPH_UDP_CUTS_PER_PACKET] ||
+				qDevice.udpPacketToCollectPointer == &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
+			qDevice.udpPacketToSendPointer = qDevice.udpPacketToCollectPointer - TOMOGRAPH_UDP_CUTS_PER_PACKET;
+			udpTomographPacketHasCollected = SET;
+		}
+		if(qDevice.udpPacketToCollectPointer >= &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
+			qDevice.udpPacketToCollectPointer = &qDevice.udpPacketStorage[0];
+		}
     }
 
     /* Send Tomograph pressure packet*/
     if(udpTomographPacketHasCollected == SET){
     	udpTomographPacketHasCollected = RESET;
 //    	size_t size = sizeof(QTomographUdpCut)*TOMOGRAPH_UDP_CUTS_PER_PACKET;
-    	uint8_t* address = (uint8_t*)(qDevice.udpPacketToSendPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET) - 4;// shift for packet type
+    	uint8_t* address = (uint8_t*)(qDevice.udpPacketToSendPointer) - 4;// shift for packet type
     	*address = TOMOGRAPH_PACKET_TYPE; // set packet size
     	udpClientSend(address, UDP_PACKET_FIXED_SIZE);
 //    	memset(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET, 0, size);

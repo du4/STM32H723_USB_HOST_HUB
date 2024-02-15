@@ -250,8 +250,9 @@ void TIM4_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM4_IRQn 0 */
 	if(__HAL_TIM_GET_FLAG(&htim4, TIM_FLAG_UPDATE) != RESET){
+		memset(qDevice.udpPacketToCollectPointer, 0, sizeof(QTomographUdpCut));
 		qDevice.udpPacketToCollectPointer->cutId = cutIndex;
-		qDevice.udpPacketToCollectPointer->tick = (float32_t)(__HAL_TIM_GET_COUNTER(&htim2))/1000.0;
+		qDevice.udpPacketToCollectPointer->tick = (float32_t)(__HAL_TIM_GET_COUNTER(&htim2))/1000.0 - 1;
 		cutIndex++;
 //		if(cutIndex < 10){
 		HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
