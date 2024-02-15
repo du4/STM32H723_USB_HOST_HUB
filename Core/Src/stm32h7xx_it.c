@@ -61,7 +61,6 @@ extern uint32_t cutIndex;
 extern int packetSendCounter, packetReceiveCounter, bytesReceiveCounter;
 
 extern uint8_t cdc_tx_buf[];
-extern int usbDataCollectingState;
 extern int cdcDeviceBufferIndex;
 //extern ApplicationTypeDef Appli_state;
 /* USER CODE END 0 */
@@ -251,14 +250,15 @@ void TIM4_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM4_IRQn 0 */
 	if(__HAL_TIM_GET_FLAG(&htim4, TIM_FLAG_UPDATE) != RESET){
-		qDevice.udpPacketPointer->cutId = cutIndex;
+		qDevice.udpPacketToCollectPointer->cutId = cutIndex;
+		qDevice.udpPacketToCollectPointer->tick = (float32_t)(__HAL_TIM_GET_COUNTER(&htim2))/1000.0;
 		cutIndex++;
-		if(cutIndex < 6){
+//		if(cutIndex < 10){
 		HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-		}else if (cutIndex == 6){
-			HAL_TIM_Base_Stop_IT(&htim15);
-			stopStreamMeasuering();
-		}
+//		}else if (cutIndex == 10){
+//			HAL_TIM_Base_Stop_IT(&htim15);
+//			stopStreamMeasuering();
+//		}
 
 		CDC_STATE = CDC_SEND; // send request to the next LPC
 		__HAL_TIM_CLEAR_IT(&htim4, TIM_IT_UPDATE);
