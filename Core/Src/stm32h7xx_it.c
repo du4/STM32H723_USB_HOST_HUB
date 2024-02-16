@@ -254,14 +254,9 @@ void TIM4_IRQHandler(void)
 		qDevice.udpPacketToCollectPointer->cutId = cutIndex;
 		qDevice.udpPacketToCollectPointer->tick = (float32_t)(__HAL_TIM_GET_COUNTER(&htim2))/1000.0 - 1;
 		cutIndex++;
-//		if(cutIndex < 10){
 		HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-//		}else if (cutIndex == 10){
-//			HAL_TIM_Base_Stop_IT(&htim15);
-//			stopStreamMeasuering();
-//		}
 
-		CDC_STATE = CDC_SEND; // send request to the next LPC
+		CDC_STATE = CDC_SEND; // set send LPC request flag
 		__HAL_TIM_CLEAR_IT(&htim4, TIM_IT_UPDATE);
 	/*	FOR DEBUG	*/
 

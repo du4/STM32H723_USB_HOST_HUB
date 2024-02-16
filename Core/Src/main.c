@@ -105,6 +105,7 @@ static uint8_t Vendor[14] = "QualitetSystem";
 int packetSendCounter = 0;
 int packetReceiveCounter = 0;
 int bytesReceiveCounter = 0;
+int tomographPacketCounter = 0;
 int btnCounter = 0;
 
 int usbDataHasCollected = RESET;
@@ -331,7 +332,7 @@ int main(void)
     if(usbDataHasCollected == SET){
     	usbDataHasCollected = RESET;
     	qDevice.udpPacketToCollectPointer++;
-    	fillLpcSampleData(cutIndex, qDevice.lpcPacketStorage.pLpcBufToSend);
+//    	fillLpcSampleData(cutIndex, qDevice.lpcPacketStorage.pLpcBufToSend);
     	packCutPacket(qDevice.udpPacketToCollectPointer-1, qDevice.tomographConfig.stepCount, qDevice.lpcPacketStorage.pLpcBufToSend);
 		if(qDevice.udpPacketToCollectPointer == &qDevice.udpPacketStorage[TOMOGRAPH_UDP_CUTS_PER_PACKET] ||
 				qDevice.udpPacketToCollectPointer == &qDevice.udpPacketStorage[2*TOMOGRAPH_UDP_CUTS_PER_PACKET]){
@@ -346,12 +347,13 @@ int main(void)
     /* Send Tomograph pressure packet*/
     if(udpTomographPacketHasCollected == SET){
     	udpTomographPacketHasCollected = RESET;
+    	tomographPacketCounter++;
 //    	size_t size = sizeof(QTomographUdpCut)*TOMOGRAPH_UDP_CUTS_PER_PACKET;
     	uint8_t* address = (uint8_t*)(qDevice.udpPacketToSendPointer) - 4;// shift for packet type
     	*address = TOMOGRAPH_PACKET_TYPE; // set packet size
     	udpClientSend(address, UDP_PACKET_FIXED_SIZE);
 //    	memset(qDevice.udpPacketPointer-TOMOGRAPH_UDP_CUTS_PER_PACKET, 0, size);
-    }else
+    }
 
 	// send ADC measurement packet via UDP if it's ready to send
 	if(ethPressuresBankFullStatus == SET){
@@ -1258,19 +1260,23 @@ void USBH_CDC_ReceiveCallback(USBH_HandleTypeDef *phost){
 		/*END OF DEUBG */
 
 		cdcDeviceBufferIndex++;
-		if(cdcDeviceBufferIndex < 2*LPC_MCU_SIZE){
-			hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdcDeviceBufferIndex % LPC_MCU_SIZE];
-			qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex];
-			if((cdcDeviceBufferIndex % LPC_MCU_SIZE) == 0){
-				qDevice.lpcPacketStorage.pLpcBufToSend = qDevice.lpcPacketStorage.pLpcBufToCollect - LPC_MCU_SIZE;
-				usbDataHasCollected = SET;
-			}else{
-				CDC_STATE = CDC_SEND;
-			}
+		qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[cdcDeviceBufferIndex];
+
+		if((cdcDeviceBufferIndex % LPC_MCU_SIZE) == 0){
+			usbDataHasCollected = SET;
+			qDevice.lpcPacketStorage.pLpcBufToSend = qDevice.lpcPacketStorage.pLpcBufToCollect - LPC_MCU_SIZE;
 		}else{
+			CDC_STATE = CDC_SEND;
+		}
+
+		if(cdcDeviceBufferIndex >= 2*LPC_MCU_SIZE){
 			cdcDeviceBufferIndex = 0;
 			qDevice.lpcPacketStorage.pLpcBufToCollect = &qDevice.lpcPacketStorage.lpcDoublePacketsPerCut[0];
 		}
+
+		hUsbHostHS.pActiveClass->pData = &cdc_Handles[cdcDeviceBufferIndex % LPC_MCU_SIZE];
+
+
 
 		/* FOR DEBUG */
 		HAL_GPIO_WritePin(CUT_EVENT_GPIO_Port, CUT_EVENT_Pin, GPIO_PIN_RESET);
