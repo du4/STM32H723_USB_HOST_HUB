@@ -2,6 +2,7 @@
 #define __MB_HOLDING_REG_MAP_H__
 //								NAME												ADDRESS					SIZE, 16bit register////////////////////////	2 register size	////////////////////////////////////////////////
 #define					hDEVICE_BASE												0x1600
+
 //#define					TWO_REGISTER_BASE											0x1000
 #define					ALIGMENT													32
 
@@ -49,6 +50,23 @@
 
 #define					hGeneratorOffset								(hDEVICE_BASE + 6*ALIGMENT)
 #define 				hDDSOneVoltCoef									hGeneratorOffset
+
+#define 			hMultiplexerPrograms								hDEVICE_BASE + 7*ALIGMENT		//		16steps*16electrodes
+#define				MUX_PROGRAM_SIZE									64
+
+///// LPC devicec //////
+#define					hLpcDeviceArrayBase											0x2000
+
+#define					hLpcDeviceSettingsBaseSift									0x0		// 88 bytes
+	#define					LPC_DEVICE_SETTINGS_SIZE									44
+#define					hLpcDeviceGitBaseSift										(LPC_DEVICE_SETTINGS_SIZE)	// 100 bytes
+	#define					LPC_DEVICE_GIT_SIZE											50
+#define					hLpcDeviceAdcValuesBaseSift									(LPC_DEVICE_SETTINGS_SIZE + LPC_DEVICE_GIT_SIZE)	// 8 bytes
+#define					hLpcDeviceStatusBaseSift									(LPC_DEVICE_SETTINGS_SIZE + LPC_DEVICE_GIT_SIZE + 8)	// 4 bytes
+
+#define 			LPC_DEVICE_SIZE													128 // 106 registers
+
+
 
 
 #define				hSerialsBase												0x3100
@@ -139,7 +157,7 @@
 //#define					hSyncType													(ONE_REGISTER_BASE+25)
 //#define					ONE_REGISTERS_SIZE											26
 
-#define 				hMultiplexerPrograms										0x2000		//		1*256
+
 
 
 

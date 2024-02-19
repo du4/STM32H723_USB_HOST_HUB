@@ -673,7 +673,7 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 	uint16_t addrIndex = 0, finishAddr = usAddress + usNRegs, zeroReg = 0;
 	USHORT* pointer = 0;
-	uint32_t mbOffset;
+	uint32_t mbOffset, value32;
 	USHORT* dataOffset;
 	float32_t fValue;
 
@@ -733,7 +733,7 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 			*(usRegHoldingBuf++) = *dataOffset;
 		}
 
-		if ( (addrIndex >= hPermanentParamBase) && (addrIndex <= (hPermanentParamBase + hPermanentParamsSize))) {
+		if ( (addrIndex >= hPermanentParamBase) && (addrIndex < (hPermanentParamBase + hPermanentParamsSize))) {
 			mbOffset = addrIndex - hPermanentParamBase;
 			switch(mbOffset){
 				case hProtocolVersion: *(usRegHoldingBuf++) = UDP_PROTOCOL_VERSION; break;
@@ -759,6 +759,23 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 
 		if (addrIndex == hDDSOneVoltCoef) {
 			*(usRegHoldingBuf++) = (uint16_t)qDevice.qGenerator.AD9958ToOneVoltCoef;
+		}
+
+		if ((addrIndex >= hLpcDeviceArrayBase) && (addrIndex <= (hLpcDeviceArrayBase + LPC_MCU_SIZE * LPC_DEVICE_SIZE))){
+			value32 = (addrIndex - hLpcDeviceArrayBase)/LPC_DEVICE_SIZE;
+			mbOffset = (addrIndex - hLpcDeviceArrayBase)%LPC_DEVICE_SIZE;
+			if(mbOffset < hLpcDeviceGitBaseSift){
+				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].settings + mbOffset;
+			}else if(mbOffset >= hLpcDeviceGitBaseSift && mbOffset < hLpcDeviceAdcValuesBaseSift){
+				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].gitCommit + mbOffset;
+			}else if(mbOffset >= hLpcDeviceAdcValuesBaseSift && mbOffset < hLpcDeviceStatusBaseSift){
+				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].adcValues + mbOffset;
+			}else if(mbOffset >= hLpcDeviceStatusBaseSift && mbOffset < (hLpcDeviceStatusBaseSift+4)){
+				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].status + mbOffset;
+			}else{
+				dataOffset = &zeroReg;
+			}
+			*(usRegHoldingBuf++) = *dataOffset;
 		}
 
 
