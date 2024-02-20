@@ -59,10 +59,10 @@
 
 #define					hLpcDeviceSettingsBaseSift									0x0		// 88 bytes
 	#define					LPC_DEVICE_SETTINGS_SIZE									44
-#define					hLpcDeviceGitBaseSift										(LPC_DEVICE_SETTINGS_SIZE)	// 100 bytes
+#define					hLpcDeviceGitBaseSift										LPC_DEVICE_SETTINGS_SIZE	// 100 bytes
 	#define					LPC_DEVICE_GIT_SIZE											50
-#define					hLpcDeviceAdcValuesBaseSift									(LPC_DEVICE_SETTINGS_SIZE + LPC_DEVICE_GIT_SIZE)	// 8 bytes
-#define					hLpcDeviceStatusBaseSift									(LPC_DEVICE_SETTINGS_SIZE + LPC_DEVICE_GIT_SIZE + 8)	// 4 bytes
+#define					hLpcDeviceAdcValuesBaseSift									(hLpcDeviceGitBaseSift + LPC_DEVICE_GIT_SIZE)	// 8 bytes
+#define					hLpcDeviceStatusBaseSift									(hLpcDeviceAdcValuesBaseSift + 8)	// 4 bytes
 
 #define 			LPC_DEVICE_SIZE													128 // 106 registers
 

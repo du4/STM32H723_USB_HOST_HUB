@@ -235,6 +235,7 @@ int main(void)
   /* USER CODE BEGIN SysInit */
   initDevice(&qDevice);
   initTomograph(&qDevice.lpcMcus[0], &qDevice.tomographConfig, &qDevice.qMeasurer.measuringParameters, &qDevice.muxTable, (QLpcElectodeCoefs*)null);
+  fillLpcMcuTypeDefs(&qDevice);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */

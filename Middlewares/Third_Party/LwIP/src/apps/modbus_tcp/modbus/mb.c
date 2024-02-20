@@ -767,11 +767,11 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 			if(mbOffset < hLpcDeviceGitBaseSift){
 				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].settings + mbOffset;
 			}else if(mbOffset >= hLpcDeviceGitBaseSift && mbOffset < hLpcDeviceAdcValuesBaseSift){
-				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].gitCommit + mbOffset;
+				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].gitCommit + mbOffset - hLpcDeviceGitBaseSift;
 			}else if(mbOffset >= hLpcDeviceAdcValuesBaseSift && mbOffset < hLpcDeviceStatusBaseSift){
-				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].adcValues + mbOffset;
+				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].adcValues + mbOffset - hLpcDeviceAdcValuesBaseSift;
 			}else if(mbOffset >= hLpcDeviceStatusBaseSift && mbOffset < (hLpcDeviceStatusBaseSift+4)){
-				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].status + mbOffset;
+				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].status + mbOffset - hLpcDeviceStatusBaseSift;
 			}else{
 				dataOffset = &zeroReg;
 			}
