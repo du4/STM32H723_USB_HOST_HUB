@@ -51,8 +51,11 @@
 #define					hGeneratorOffset								(hDEVICE_BASE + 6*ALIGMENT)
 #define 				hDDSOneVoltCoef									hGeneratorOffset
 
-#define 			hMultiplexerPrograms								hDEVICE_BASE + 7*ALIGMENT		//		16steps*16electrodes
-#define				MUX_PROGRAM_SIZE									64
+#define 			hMultiplexerProgramBase								(hDEVICE_BASE + 7*ALIGMENT)		//		16steps*16electrodes
+#define				MUX_PROGRAM_SIZE									8//64
+
+#define				hTomographConfigBase								(hDEVICE_BASE + 9*ALIGMENT)
+#define				TOMOGRAPH_CONFIG_SIZE								20
 
 ///// LPC devicec //////
 #define					hLpcDeviceArrayBase											0x2000

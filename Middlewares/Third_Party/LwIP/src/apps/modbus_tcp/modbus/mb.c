@@ -65,6 +65,7 @@
 #include "measurer.h"
 #include "intFlash.h"
 #include "udpClient.h"
+#include "lpcMcu.h"
 
 #ifndef MB_PORT_HAS_CLOSE
 #define MB_PORT_HAS_CLOSE 0
@@ -630,6 +631,20 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 					*dataOffset = value16;
 				}
 
+				if (varPointer >= hMultiplexerProgramBase && varPointer <= (hMultiplexerProgramBase + MUX_PROGRAM_SIZE)) {
+					value16 = *((USHORT*)(pucRegBuffer + 2*(varPointer-usAddress)));
+					value16 = __REV16(value16);
+					dataOffset = (USHORT*)(&qDevice.muxTable) + (varPointer - hMultiplexerProgramBase);
+					*dataOffset = value16;
+				}
+
+				if (varPointer >= hTomographConfigBase && varPointer <= (hTomographConfigBase + TOMOGRAPH_CONFIG_SIZE)) {
+					value16 = *((USHORT*)(pucRegBuffer + 2*(varPointer-usAddress)));
+					value16 = __REV16(value16);
+					dataOffset = (USHORT*)(&qDevice.tomographConfig) + (varPointer - hTomographConfigBase);
+					*dataOffset = value16;
+				}
+
 				else if (usAddress >= MANAGMENT_REGISTER_BASE && usAddress <= MANAGMENT_REGISTER_BASE + MANAGMENT_REGISTERS_SIZE) {
 					switch (varPointer) {
 					case hreboot:
@@ -674,6 +689,7 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 	uint16_t addrIndex = 0, finishAddr = usAddress + usNRegs, zeroReg = 0;
 	USHORT* pointer = 0;
 	uint32_t mbOffset, value32;
+	int		val32;
 	USHORT* dataOffset;
 	float32_t fValue;
 
@@ -761,6 +777,19 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 			*(usRegHoldingBuf++) = (uint16_t)qDevice.qGenerator.AD9958ToOneVoltCoef;
 		}
 
+
+		if ((addrIndex >= hMultiplexerProgramBase) && (addrIndex <= (hMultiplexerProgramBase + MUX_PROGRAM_SIZE))) {
+			mbOffset = addrIndex - hMultiplexerProgramBase;
+			dataOffset = (USHORT*)&qDevice.muxTable + mbOffset;
+			*(usRegHoldingBuf++) = *dataOffset;
+		}
+
+		if ((addrIndex >= hTomographConfigBase) && (addrIndex <= (hTomographConfigBase + TOMOGRAPH_CONFIG_SIZE))) {
+			mbOffset = addrIndex - hTomographConfigBase;
+			dataOffset = (USHORT*)&qDevice.tomographConfig + mbOffset;
+			*(usRegHoldingBuf++) = *dataOffset;
+		}
+
 		if ((addrIndex >= hLpcDeviceArrayBase) && (addrIndex <= (hLpcDeviceArrayBase + LPC_MCU_SIZE * LPC_DEVICE_SIZE))){
 			value32 = (addrIndex - hLpcDeviceArrayBase)/LPC_DEVICE_SIZE;
 			mbOffset = (addrIndex - hLpcDeviceArrayBase)%LPC_DEVICE_SIZE;
@@ -771,7 +800,13 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 			}else if(mbOffset >= hLpcDeviceAdcValuesBaseSift && mbOffset < hLpcDeviceStatusBaseSift){
 				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].adcValues + mbOffset - hLpcDeviceAdcValuesBaseSift;
 			}else if(mbOffset >= hLpcDeviceStatusBaseSift && mbOffset < (hLpcDeviceStatusBaseSift+4)){
-				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].status + mbOffset - hLpcDeviceStatusBaseSift;
+				if(value32 > LPC_MCU_SIZE){
+					val32 = -1;
+					dataOffset = (USHORT*)&val32;
+				}else{
+					qDevice.lpcMcus[value32].status = getLpcStatus(value32);
+					dataOffset = (USHORT*)&qDevice.lpcMcus[value32].status + mbOffset - hLpcDeviceStatusBaseSift;
+				}
 			}else{
 				dataOffset = &zeroReg;
 			}
