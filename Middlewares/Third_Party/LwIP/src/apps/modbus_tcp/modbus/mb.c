@@ -594,35 +594,6 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 				case hDDSOneVoltCoef:
 					qDevice.qGenerator.AD9958ToOneVoltCoef = getRegisterValueFromBuf(pointer);
 					break;
-
-//				case hTcpIpAddress:
-//					qDevice.eth_params.IPaddr.addr = arrayPionterToUint32(pointer);
-//					break;
-//				case hTcpIpMask:
-//					qDevice.eth_params.IPmask.addr = arrayPionterToUint32(pointer);
-//					break;
-//				case hTcpIpGate:
-//					qDevice.eth_params.IPgate.addr = arrayPionterToUint32(pointer);
-//					break;
-//				case (hEthParamsBase + hUdpServerAddrOffset):
-//						value32 = arrayPionterToUint32(pointer);
-//						if(value32 != qDevice.eth_params.udpServerAddr.addr){
-//							qDevice.eth_params.udpServerAddr.addr = value32;
-//							udpClientDisconnect();
-//							udpClientConnect(qDevice.eth_params.udpServerAddr, qDevice.eth_params.udpPort);
-//					break;
-//				case (hEthParamsBase + hServerUdpPortOffset):
-//					value16 = getRegisterValueFromBuf(pointer);
-//					if(value16 != qDevice.eth_params.udpPort){
-//						qDevice.eth_params.udpPort = value16;
-//						udpClientDisconnect();
-//						udpClientConnect(qDevice.eth_params.udpServerAddr, qDevice.eth_params.udpPort);
-////						printf("Set new UDP port %d\r\n", value16);
-//					}
-//					break;
-//				case hModBusTcpPort:
-//					qDevice.eth_params.modBusTcpPort = getRegisterValueFromBuf(pointer);
-//					break;
 				}
 
 				if (varPointer >= hEthParamsBase && varPointer <= (hEthParamsBase + hEthParamsSize)) {
@@ -633,10 +604,13 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 				}
 
 				if (varPointer >= hMultiplexerProgramBase && varPointer <= (hMultiplexerProgramBase + MUX_PROGRAM_SIZE)) {
+					mbOffset = varPointer - hMultiplexerProgramBase;
 					value16 = *((USHORT*)(pucRegBuffer + 2*(varPointer-usAddress)));
 					value16 = __REV16(value16);
 					dataOffset = (USHORT*)(&qDevice.muxTable) + (varPointer - hMultiplexerProgramBase);
 					*dataOffset = value16;
+					if(mbOffset == qDevice.tomographConfig.stepCount)
+						setMuxProgramToAllLpc(&qDevice.tomographConfig, &qDevice.muxTable, &qDevice.lpcMcus[0]);
 				}
 
 				if (varPointer >= hTomographConfigBase && varPointer <= (hTomographConfigBase + TOMOGRAPH_CONFIG_SIZE)) {
