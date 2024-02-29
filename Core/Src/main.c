@@ -256,6 +256,7 @@ int main(void)
   MX_TIM15_Init();
   MX_TIM23_Init();
   /* USER CODE BEGIN 2 */
+  setCutRateToTimers(&qDevice);
 // JUST FOR TESTS
 //  qDevice.tomographConfig.cutRate = 100; //Hz
 //  htim4.Instance->ARR = 1000/qDevice.tomographConfig.cutRate * 1000;
@@ -740,7 +741,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 275-1;
+  htim1.Init.Prescaler = uSecondTimPrescaller;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 62;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -818,7 +819,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 275-1;
+  htim2.Init.Prescaler = uSecondTimPrescaller;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -922,7 +923,7 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 275-1;
+  htim4.Init.Prescaler = uSecondTimPrescaller;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim4.Init.Period = 1000-1;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;

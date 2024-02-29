@@ -61,6 +61,7 @@ void packPressurePacket(uint32_t tick);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define uSecondTimPrescaller 274
 #define UserBtn_Pin GPIO_PIN_13
 #define UserBtn_GPIO_Port GPIOC
 #define ULPI_RES_Pin GPIO_PIN_2

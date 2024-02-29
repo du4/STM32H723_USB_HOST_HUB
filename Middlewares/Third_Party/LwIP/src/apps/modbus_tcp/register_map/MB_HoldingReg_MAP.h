@@ -55,7 +55,15 @@
 #define				MUX_PROGRAM_SIZE									8//64
 
 #define				hTomographConfigBase								(hDEVICE_BASE + 9*ALIGMENT)
-#define				TOMOGRAPH_CONFIG_SIZE								20
+	#define hTomographConfigStepCountOffset				0
+	#define hTomographConfigCutsPerUsbPacketOffset		1
+	#define hTomographCutRateOffset						2
+	#define hTomographSampleFilterLengthOffset			4
+	#define hTomographRrefOffset						6
+	#define hTomographBitSettingsOffset					8
+	#define hTomographRoleOffset						9
+	#define hCutToMuxPeriodRate							10
+#define				TOMOGRAPH_CONFIG_SIZE								22
 
 ///// LPC devicec //////
 #define					hLpcDeviceArrayBase											0x2000

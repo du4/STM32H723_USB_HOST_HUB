@@ -65,6 +65,7 @@
 #include "measurer.h"
 #include "intFlash.h"
 #include "udpClient.h"
+#include "tomograph.h"
 #include "lpcMcu.h"
 
 #ifndef MB_PORT_HAS_CLOSE
@@ -639,10 +640,20 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 				}
 
 				if (varPointer >= hTomographConfigBase && varPointer <= (hTomographConfigBase + TOMOGRAPH_CONFIG_SIZE)) {
+					mbOffset = varPointer - hTomographConfigBase;
 					value16 = *((USHORT*)(pucRegBuffer + 2*(varPointer-usAddress)));
 					value16 = __REV16(value16);
-					dataOffset = (USHORT*)(&qDevice.tomographConfig) + (varPointer - hTomographConfigBase);
+					dataOffset = (USHORT*)(&qDevice.tomographConfig) + mbOffset;
 					*dataOffset = value16;
+					if(mbOffset == hTomographCutRateOffset || (mbOffset == hCutToMuxPeriodRate)){
+						setCutRateToTimers(&qDevice);
+					}
+					if( (mbOffset == hTomographConfigStepCountOffset) || (mbOffset == hTomographBitSettingsOffset) ||
+							(mbOffset == hTomographConfigCutsPerUsbPacketOffset) || (mbOffset == hTomographSampleFilterLengthOffset) ||
+							(mbOffset == hTomographCutRateOffset) || (mbOffset == hTomographRrefOffset)){
+						setLpcConfigToAllMcu(&qDevice);
+					}
+
 				}
 
 				else if (usAddress >= MANAGMENT_REGISTER_BASE && usAddress <= MANAGMENT_REGISTER_BASE + MANAGMENT_REGISTERS_SIZE) {
