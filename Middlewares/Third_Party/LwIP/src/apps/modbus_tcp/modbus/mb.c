@@ -619,7 +619,7 @@ eMBErrorCode eMBRegHoldingCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT usN
 					value16 = __REV16(value16);
 					dataOffset = (USHORT*)(&qDevice.tomographConfig) + mbOffset;
 					*dataOffset = value16;
-					if(mbOffset == hTomographCutRateOffset || (mbOffset == hCutToMuxPeriodRate)){
+					if(mbOffset == hTomographConfigStepCountOffset || mbOffset == hTomographCutRateOffset || (mbOffset == hCutToMuxPeriodRate)){
 						setCutRateToTimers(&qDevice);
 					}
 					if( (mbOffset == hTomographConfigStepCountOffset) || (mbOffset == hTomographBitSettingsOffset) ||
@@ -763,7 +763,7 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 		}
 
 
-		if ((addrIndex >= hMultiplexerProgramBase) && (addrIndex <= (hMultiplexerProgramBase + MUX_PROGRAM_SIZE))) {
+		if ((addrIndex >= hMultiplexerProgramBase) && (addrIndex <= (hMultiplexerProgramBase + qDevice.tomographConfig.stepCount))) {
 			mbOffset = addrIndex - hMultiplexerProgramBase;
 			dataOffset = (USHORT*)&qDevice.muxTable + mbOffset;
 			*(usRegHoldingBuf++) = *dataOffset;
@@ -783,6 +783,7 @@ void fillMbHolingBuf(USHORT usAddress, USHORT usNRegs, USHORT* usRegHoldingBuf){
 			}else if(mbOffset >= hLpcDeviceGitBaseSift && mbOffset < hLpcDeviceAdcValuesBaseSift){
 				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].gitCommit + mbOffset - hLpcDeviceGitBaseSift;
 			}else if(mbOffset >= hLpcDeviceAdcValuesBaseSift && mbOffset < hLpcDeviceStatusBaseSift){
+				if(mbOffset == hLpcDeviceAdcValuesBaseSift) getLpcAdcValues(&qDevice.lpcMcus[value32]);
 				dataOffset = (USHORT*)&qDevice.lpcMcus[value32].adcValues + mbOffset - hLpcDeviceAdcValuesBaseSift;
 			}else if(mbOffset >= hLpcDeviceStatusBaseSift && mbOffset < (hLpcDeviceStatusBaseSift+4)){
 				if(value32 > LPC_MCU_SIZE){

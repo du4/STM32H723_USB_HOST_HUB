@@ -60,12 +60,8 @@
 
 #define BTN_DELAY	50000
 
-#define DEVICE_COUNT	2
-
-
 //#define I2C_TEST
 //#define USB_TEST
-//#define i2cBufSize 11
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -138,14 +134,7 @@ CDC_HandleTypeDef cdc_Handles [LPC_MCU_SIZE];
 
 void packPressurePacket(uint32_t tick){
 	uint32_t intVar;
-	if(qDevice.adcEntitie.singleMeasurementFlag == SET){
-		QAdcMeasuremenLine* line = &qDevice.adcEntitie.measurementLines[0];
-		line->tick = 0;
-		for (int i = 0; i < ADC_CHANNEL_SIZE; ++i) {
-			line ->measurements[i] = qDevice.adcEntitie.settings.pCoef * qDevice.adcEntitie.adcValues[i];
-		}
-		qDevice.adcEntitie.singleMeasurementFlag = RESET;
-	}else{
+	if(qDevice.adcEntitie.singleMeasurementFlag != SET){
 		for (int i = 0; i < ADC_LINES_SIZE; ++i) {
 			intVar = (qDevice.qMeasurer.periodMs/qDevice.adcEntitie.settings.periodMs) * (i+1);
 			if( tick > intVar ){
@@ -156,6 +145,13 @@ void packPressurePacket(uint32_t tick){
 				}
 			}else break;
 		}
+	}else{
+		QAdcMeasuremenLine* line = &qDevice.adcEntitie.measurementLines[0];
+		line->tick = 0;
+		for (int i = 0; i < ADC_CHANNEL_SIZE; ++i) {
+			line ->measurements[i] = qDevice.adcEntitie.settings.pCoef * qDevice.adcEntitie.adcValues[i];
+		}
+		qDevice.adcEntitie.singleMeasurementFlag = RESET;
 	}
 }
 
@@ -235,7 +231,9 @@ int main(void)
   /* USER CODE BEGIN SysInit */
   initDevice(&qDevice);
   initTomograph(&qDevice.lpcMcus[0], &qDevice.tomographConfig, &qDevice.qMeasurer.measuringParameters, &qDevice.muxTable, (QLpcElectodeCoefs*)null);
+#ifdef LPC_DEBUG
   fillLpcMcuTypeDefs(&qDevice);
+#endif
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */

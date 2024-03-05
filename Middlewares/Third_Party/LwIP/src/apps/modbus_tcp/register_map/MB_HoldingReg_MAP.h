@@ -63,7 +63,7 @@
 	#define hTomographBitSettingsOffset					8
 	#define hTomographRoleOffset						9
 	#define hCutToMuxPeriodRate							10
-#define				TOMOGRAPH_CONFIG_SIZE								22
+#define				TOMOGRAPH_CONFIG_SIZE								11
 
 ///// LPC devicec //////
 #define					hLpcDeviceArrayBase											0x2000
